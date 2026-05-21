@@ -4,10 +4,11 @@ WORKDIR /tmp
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
+COPY src src/
 
-RUN uv export --no-dev --no-hashes -o requirements.txt \
- && uv build --no-dev
+RUN uv export --no-dev --no-hashes --no-emit-project -o requirements.txt \
+ && uv build
 
 FROM python:3.12-slim
 
@@ -30,6 +31,6 @@ RUN pip install --no-cache /tmp/*.whl && rm /tmp/*.whl
 USER app
 
 HEALTHCHECK --interval=300s --timeout=10s --start-period=5s --retries=3 \
-    CMD kleys show --help || exit 1
+    CMD kleys --help || exit 1
 
 ENTRYPOINT ["kleys"]

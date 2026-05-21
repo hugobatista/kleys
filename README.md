@@ -84,16 +84,11 @@ pip install .
 
 ### Docker
 
-Pull the latest image from GHCR:
-
-```bash
-docker pull ghcr.io/hugobatista/kleys:latest
-```
-
-Build locally:
+Build and run locally:
 
 ```bash
 docker build -t kleys .
+docker run --rm kleys show --help
 ```
 
 Run:
