@@ -227,7 +227,7 @@ class TestParseClearOptions:
 
     def test_no_args_defaults(self) -> None:
         opts = cli._parse_clear_options([])
-        assert opts == {"app_name": None}
+        assert opts == {"app_name": None, "force": False}
 
     def test_app_option(self) -> None:
         opts = cli._parse_clear_options(["--app", "myapp"])
@@ -236,6 +236,10 @@ class TestParseClearOptions:
     def test_app_short(self) -> None:
         opts = cli._parse_clear_options(["-a", "myapp"])
         assert opts["app_name"] == "myapp"
+
+    def test_force_flag(self) -> None:
+        opts = cli._parse_clear_options(["--force"])
+        assert opts["force"] is True
 
     def test_help_exits(self) -> None:
         with pytest.raises(SystemExit):
@@ -337,7 +341,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", return_value=True)
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp"])
+        cli._handle_clear(["--app", "myapp", "--force"])
 
         assert mock_success.call_count == 2
         mock_success.assert_any_call("Deleted encrypted secrets for 'myapp'")
@@ -347,7 +351,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", side_effect=[True, False])
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp"])
+        cli._handle_clear(["--app", "myapp", "--force"])
 
         mock_success.assert_called_once_with(
             "Deleted encrypted secrets for 'myapp'"
@@ -357,7 +361,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", side_effect=[False, True])
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp"])
+        cli._handle_clear(["--app", "myapp", "--force"])
 
         mock_success.assert_called_once_with(
             "Deleted plaintext secrets for 'myapp'"
@@ -368,10 +372,52 @@ class TestHandleClear:
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_clear(["--app", "myapp"])
+            cli._handle_clear(["--app", "myapp", "--force"])
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
+
+    def test_confirms_before_delete(self, mocker: MockerFixture) -> None:
+        mocker.patch("sys.stdin.isatty", return_value=True)
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch("kleys.keyring_.delete", return_value=True)
+        mock_success = mocker.patch("kleys.cli.success")
+
+        cli._handle_clear(["--app", "myapp"])
+
+        assert mock_success.call_count == 2
+
+    def test_cancelled_by_user(self, mocker: MockerFixture) -> None:
+        mocker.patch("sys.stdin.isatty", return_value=True)
+        mocker.patch("typer.confirm", return_value=False)
+        mock_warn = mocker.patch("kleys.cli.warn")
+
+        with pytest.raises(SystemExit):
+            cli._handle_clear(["--app", "myapp"])
+
+        mock_warn.assert_called_once_with("Clear cancelled.")
+
+    def test_abort_confirmation(self, mocker: MockerFixture) -> None:
+        import typer as _typer
+
+        mocker.patch("sys.stdin.isatty", return_value=True)
+        mocker.patch("typer.confirm", side_effect=_typer.Abort)
+        mock_warn = mocker.patch("kleys.cli.warn")
+
+        with pytest.raises(SystemExit):
+            cli._handle_clear(["--app", "myapp"])
+
+        mock_warn.assert_called_once_with("Clear cancelled.")
+
+    def test_non_interactive_requires_force(self, mocker: MockerFixture) -> None:
+        mocker.patch("sys.stdin.isatty", return_value=False)
+        mock_error = mocker.patch("kleys.cli.error")
+
+        with pytest.raises(SystemExit):
+            cli._handle_clear(["--app", "myapp"])
+
+        mock_error.assert_called_once()
+        assert "force" in mock_error.call_args[0][0].lower()
 
 
 class TestMainRouting:

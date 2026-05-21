@@ -74,6 +74,7 @@ Usage: kleys clear [OPTIONS]
 
 Options:
   --app APP, -a APP       Keyring app identifier (default: current folder name)
+  --force                 Skip confirmation prompt
   --help, -h              Show this help message
 """
 
@@ -161,6 +162,7 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
 def _parse_clear_options(args: list[str]) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "app_name": None,
+        "force": False,
     }
     i = 0
     while i < len(args):
@@ -174,6 +176,9 @@ def _parse_clear_options(args: list[str]) -> dict[str, Any]:
                 sys.exit(1)
             opts["app_name"] = args[i + 1]
             i += 2
+        elif a == "--force":
+            opts["force"] = True
+            i += 1
         else:
             error(f"error: unknown option {a!r}")
             sys.exit(1)
@@ -223,6 +228,25 @@ def _handle_show(args: list[str]) -> None:
 def _handle_clear(args: list[str]) -> None:
     opts = _parse_clear_options(args)
     app_name = opts["app_name"] or Path.cwd().name
+
+    if not opts["force"]:
+        if not sys.stdin.isatty():
+            error(
+                "Error: Confirmation required. Use --force to skip prompt"
+                " in non-interactive mode."
+            )
+            sys.exit(1)
+        import typer
+
+        try:
+            confirmed = typer.confirm(
+                f"Danger: This will delete all secrets for '{app_name}'. Continue?"
+            )
+        except typer.Abort:
+            confirmed = False
+        if not confirmed:
+            warn("Clear cancelled.")
+            sys.exit(1)
 
     deleted_any = False
     if kr.delete(f"{app_name}-encrypted"):
