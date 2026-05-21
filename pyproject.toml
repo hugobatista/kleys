@@ -3,6 +3,9 @@ name = "kleys"
 version = "0.4.0"
 description = "Execute commands with secrets loaded encrypted from your system keyring"
 readme = "README.md"
+authors = [
+    { name = "Hugo Batista <code at hugobatista.com>" },
+]
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-only" }
 
@@ -43,7 +46,7 @@ format = "ruff format ."
 format-check = "ruff format --check ."
 test = "pytest src tests --cov=src/kleys --cov-fail-under=100 -v"
 typecheck = "mypy src --strict --no-incremental"
-validate = ["lint", "format-check", "test", "typecheck"]
+validate = ["lint", "format", "test", "typecheck"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
