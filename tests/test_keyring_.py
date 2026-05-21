@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import keyring
+import pytest
 from pytest_mock import MockerFixture
 
 from kleys import keyring_ as kr
@@ -12,6 +13,13 @@ class TestStore:
         keyring.set_password.assert_called_once_with(
             "myapp", "__secrets__", "secret-content"
         )
+
+    def test_raises_keyring_unavailable_on_error(
+        self, mocker: MockerFixture
+    ) -> None:
+        keyring.set_password.side_effect = keyring.errors.KeyringError("fail")
+        with pytest.raises(kr.KeyringUnavailableError):
+            kr.store("myapp", "secret")
 
 
 class TestLookup:

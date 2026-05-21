@@ -7,6 +7,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from kleys import modes
+from kleys.keyring_ import KeyringUnavailableError
 
 
 class TestParseEnv:
@@ -109,6 +110,34 @@ class TestOfferStoreFile:
         assert result is False
         kr_store.assert_not_called()
 
+    def test_store_keyring_unavailable_plaintext(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("K=v\n")
+        mocker.patch("typer.prompt", return_value="y")
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
+        with pytest.raises(SystemExit):
+            modes._offer_store_file(str(file), "myapp", None, True)
+
+    def test_store_keyring_unavailable_encrypted(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("K=v\n")
+        mocker.patch("typer.prompt", return_value="y")
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
+        with pytest.raises(SystemExit):
+            modes._offer_store_file(str(file), "myapp", None, False)
+
 
 class TestLoadSecrets:
     def test_phase1_encrypted_found(self, mocker: MockerFixture) -> None:
@@ -183,6 +212,32 @@ class TestLoadSecrets:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
         mocker.patch("sys.stdin.read", return_value="KEY=val\n")
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value=None)
+        with pytest.raises(SystemExit):
+            modes._load_secrets("myapp", None, False)
+
+    def test_phase3_keyring_unavailable_plaintext(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("sys.stdin.read", return_value="USER=provided\n")
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
+        with pytest.raises(SystemExit):
+            modes._load_secrets("myapp", None, True)
+
+    def test_phase3_keyring_unavailable_encrypted(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("sys.stdin.read", return_value="USER=provided\n")
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
         with pytest.raises(SystemExit):
             modes._load_secrets("myapp", None, False)
 

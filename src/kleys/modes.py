@@ -8,6 +8,7 @@ import typer
 
 from kleys import console, crypto
 from kleys import keyring_ as kr
+from kleys.keyring_ import KeyringUnavailableError
 from kleys.password import (
     resolve_decrypt_password,
     resolve_encrypt_password,
@@ -46,7 +47,15 @@ def _offer_store_file(
     with open(file) as f:
         content = f.read()
     if plaintext_mode:
-        kr.store(app_name, content)
+        try:
+            kr.store(app_name, content)
+        except KeyringUnavailableError:
+            console.error(
+                "Error: No keyring backend available."
+                " Cannot store secrets. Use --file PATH"
+                " and mount the file into the container."
+            )
+            sys.exit(1)
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (not encrypted)"
         )
@@ -60,7 +69,15 @@ def _offer_store_file(
             )
             sys.exit(1)
         encrypted = crypto.encrypt(content, pw)
-        kr.store(f"{app_name}-encrypted", encrypted)
+        try:
+            kr.store(f"{app_name}-encrypted", encrypted)
+        except KeyringUnavailableError:
+            console.error(
+                "Error: No keyring backend available."
+                " Cannot store secrets. Use --file PATH"
+                " and mount the file into the container."
+            )
+            sys.exit(1)
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (encrypted)"
         )
@@ -108,7 +125,15 @@ def _load_secrets(
         console.error("Error: No secrets provided. Aborting.")
         sys.exit(1)
     if plaintext_mode:
-        kr.store(app_name, secrets_input)
+        try:
+            kr.store(app_name, secrets_input)
+        except KeyringUnavailableError:
+            console.error(
+                "Error: No keyring backend available."
+                " Cannot store secrets. Use --file PATH"
+                " and mount the file into the container."
+            )
+            sys.exit(1)
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (not encrypted)"
         )
@@ -122,7 +147,15 @@ def _load_secrets(
             )
             sys.exit(1)
         encrypted = crypto.encrypt(secrets_input, pw)
-        kr.store(f"{app_name}-encrypted", encrypted)
+        try:
+            kr.store(f"{app_name}-encrypted", encrypted)
+        except KeyringUnavailableError:
+            console.error(
+                "Error: No keyring backend available."
+                " Cannot store secrets. Use --file PATH"
+                " and mount the file into the container."
+            )
+            sys.exit(1)
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (encrypted)"
         )

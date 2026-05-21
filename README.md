@@ -88,7 +88,12 @@ Build and run locally:
 
 ```bash
 docker build -t kleys .
+
+# Non-interactive commands (show, clear)
 docker run --rm kleys show --help
+
+# Interactive — use -it for prompts (password, secrets input)
+docker run --rm -it kleys run --app test --source printenv var1
 ```
 
 Run:
@@ -97,8 +102,11 @@ Run:
 # Default entrypoint is `kleys` — pass subcommands directly
 docker run --rm ghcr.io/hugobatista/kleys:latest show --help
 
+# Interactive — secrets input and password prompts require -t
+docker run --rm -it ghcr.io/hugobatista/kleys:latest run --source printenv var1
+
 # Mount your host keyring (D-Bus) so kleys can access the system keyring
-docker run --rm \
+docker run --rm -it \
   -v /run/user/$(id -u)/bus:/run/user/1000/bus \
   -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
   ghcr.io/hugobatista/kleys:latest run --source your-command
