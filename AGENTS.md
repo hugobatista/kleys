@@ -24,3 +24,5 @@ CLI parsing is manual (not Typer decorators). Typer used only for `prompt`/`sech
 `conftest.py` auto-mocks `keyring`, `subprocess.run`, `atexit.register`, `signal.signal`. No test touches real keyring or subprocess.
 
 Must call `subprocess.run.reset_mock()` before each test that inspects it (shared mock). FD mode tests must mock `os.pipe` returning specific FDs like `(10, 11)`.
+
+Must call "hatch run validate" to run all tests, including type checks and linting, after implementing a new feature or fixing a bug. 
