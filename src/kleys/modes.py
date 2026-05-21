@@ -51,9 +51,10 @@ def _offer_store_file(
             kr.store(app_name, content)
         except KeyringUnavailableError:
             console.error(
-                "Error: No keyring backend available."
-                " Cannot store secrets. Use --file PATH"
-                " and mount the file into the container."
+                "Error: No keyring backend is available. Kleys requires a"
+                " system keyring to operate.\n"
+                "  Install a keyring backend (try: pip install keyrings.alt),\n"
+                "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
         console.success(
@@ -73,9 +74,10 @@ def _offer_store_file(
             kr.store(f"{app_name}-encrypted", encrypted)
         except KeyringUnavailableError:
             console.error(
-                "Error: No keyring backend available."
-                " Cannot store secrets. Use --file PATH"
-                " and mount the file into the container."
+                "Error: No keyring backend is available. Kleys requires a"
+                " system keyring to operate.\n"
+                "  Install a keyring backend (try: pip install keyrings.alt),\n"
+                "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
         console.success(
@@ -129,9 +131,10 @@ def _load_secrets(
             kr.store(app_name, secrets_input)
         except KeyringUnavailableError:
             console.error(
-                "Error: No keyring backend available."
-                " Cannot store secrets. Use --file PATH"
-                " and mount the file into the container."
+                "Error: No keyring backend is available. Kleys requires a"
+                " system keyring to operate.\n"
+                "  Install a keyring backend (try: pip install keyrings.alt),\n"
+                "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
         console.success(
@@ -151,9 +154,10 @@ def _load_secrets(
             kr.store(f"{app_name}-encrypted", encrypted)
         except KeyringUnavailableError:
             console.error(
-                "Error: No keyring backend available."
-                " Cannot store secrets. Use --file PATH"
-                " and mount the file into the container."
+                "Error: No keyring backend is available. Kleys requires a"
+                " system keyring to operate.\n"
+                "  Install a keyring backend (try: pip install keyrings.alt),\n"
+                "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
         console.success(

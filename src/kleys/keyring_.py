@@ -13,8 +13,10 @@ def store(service: str, secret: str) -> None:
         _keyring.set_password(service, _SERVICE_USER, secret)
     except keyring.errors.KeyringError as exc:
         raise KeyringUnavailableError(
-            "No keyring backend available.\n"
-            "  Install a keyring backend, or use --file PATH and mount the file into the container."
+            "No keyring backend is available. Kleys requires a system"
+            " keyring to operate.\n"
+            "  Install a keyring backend (try: pip install keyrings.alt),\n"
+            "  or on Linux: apt install python3-secretstorage"
         ) from exc
 
 
