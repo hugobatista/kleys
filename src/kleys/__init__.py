@@ -1,1 +1,6 @@
-__version__ = "0.4.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("kleys")
+except PackageNotFoundError:
+    __version__ = "dev"  # Fallback for uninstalled/development use
