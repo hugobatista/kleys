@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11"
 
 [options]
-exclude-newer = "2026-04-20T21:50:01.613937255Z"
+exclude-newer = "2026-04-21T13:39:02.269806633Z"
 exclude-newer-span = "P30D"
 
 [[package]]
@@ -363,6 +363,38 @@ wheels = [
 ]
 
 [[package]]
+name = "kleys"
+version = "0.4.0"
+source = { editable = "." }
+dependencies = [
+    { name = "cryptography" },
+    { name = "keyring" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=44.0" },
+    { name = "keyring", specifier = ">=25.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6" },
+    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11" },
+    { name = "typer", specifier = ">=0.12" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "librt"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -657,38 +689,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/5e/c927b325bd4c1d3620211a4b96f47864633199feed60fa936025ab27e090/ruff-0.15.11-py3-none-win_amd64.whl", hash = "sha256:8b6756d88d7e234fb0c98c91511aae3cd519d5e3ed271cae31b20f39cb2a12a3", size = 11779692, upload-time = "2026-04-16T18:46:17.268Z" },
     { url = "https://files.pythonhosted.org/packages/63/b6/aeadee5443e49baa2facd51131159fd6301cc4ccfc1541e4df7b021c37dd/ruff-0.15.11-py3-none-win_arm64.whl", hash = "sha256:063fed18cc1bbe0ee7393957284a6fe8b588c6a406a285af3ee3f46da2391ee4", size = 11032614, upload-time = "2026-04-16T18:46:34.487Z" },
 ]
-
-[[package]]
-name = "secret-tool-run"
-version = "0.4.0"
-source = { editable = "." }
-dependencies = [
-    { name = "cryptography" },
-    { name = "keyring" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-mock" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cryptography", specifier = ">=44.0" },
-    { name = "keyring", specifier = ">=25.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11" },
-    { name = "typer", specifier = ">=0.12" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "secretstorage"

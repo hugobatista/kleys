@@ -1,10 +1,12 @@
-[![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/secret-tool-run?logo=github&label=latest)](https://go.hugobatista.com/gh/secret-tool-run/releases)
+[![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/kleys?logo=github&label=latest)](https://github.com/hugobatista/kleys/releases)
 
-# secret-tool-run 🔐
+# kleys 🔐
 
-**Execute commands with secrets fetched encrypted from your keyring — never stored on disk.**
+*κλείς (kleís) — Greek for "key". Because your secrets should live in a keyring, not a `.env` file.*
 
-secret-tool-run is a CLI tool that stores secrets **encrypted** (AES-256-CBC, enabled by default) in your system's keyring, then loads them at runtime to run your commands — eliminating `.env` files from disk. Perfect for developers who want to keep credentials off the filesystem while maintaining a smooth development workflow.
+**Execute commands with secrets fetched encrypted from your keyring — never stored on disk. Works on Linux, macOS, and Windows.**
+
+kleys is a CLI tool that stores secrets **encrypted** (AES-256-CBC, enabled by default) in your system's keyring, then loads them at runtime to run your commands — eliminating `.env` files from disk. Perfect for developers who want to keep credentials off the filesystem while maintaining a smooth development workflow.
 
 ## Quick Example
 
@@ -20,10 +22,10 @@ python app.py
 Do this (secrets from keyring):
 ```bash
 # ✅ Secure: secrets loaded from keyring, never persisted to disk
-secret-tool-run python app.py
+kleys python app.py
 ```
 
-**Under the hood:** secret-tool-run retrieves your secrets from the system keyring and passes them to your command — no permanent `.env` files on disk. It has three modes: **file mode** (default) writes a temp `.env` with secure permissions and deletes it after; **file descriptor mode** (`@SECRETS@`) passes secrets via an in-memory FD with zero disk writes; **source mode** (`--source`) exports secrets as real environment variables without writing any file.
+**Under the hood:** kleys retrieves your secrets from the system keyring and passes them to your command — no permanent `.env` files on disk. It has three modes: **file mode** (default) writes a temp `.env` with secure permissions and deletes it after; **file descriptor mode** (`@SECRETS@`) passes secrets via an in-memory FD with zero disk writes; **source mode** (`--source`) exports secrets as real environment variables without writing any file.
 
 > **🔒 Encryption by default:** All secrets are encrypted with AES-256-CBC before being stored in the keyring. An attacker who enumerates your keyring gets ciphertext, not plaintext. The decryption key is never stored in the keyring. Use `--plaintext` only when necessary.
 
@@ -38,9 +40,9 @@ secret-tool-run python app.py
 **3. Process-table leaks.** The common pattern `export $(cat .env | xargs)` spawns `cat`, `xargs`, and `echo` subprocesses whose command-line arguments expose your secrets to any user running `ps aux`. `--source` passes secrets directly in the subprocess environment — no intermediate processes, no command-line arguments, no process-table leaks.
 
 ```bash
-secret-tool-run --source ansible-playbook site.yml    # no file = no malware, no git risk
-secret-tool-run --source ./deploy.sh                   # no subprocess = no ps leaks
-secret-tool-run --source npm run dev                   # all three, every time
+kleys --source ansible-playbook site.yml    # no file = no malware, no git risk
+kleys --source ./deploy.sh                   # no subprocess = no ps leaks
+kleys --source npm run dev                   # all three, every time
 ```
 
 ## Prerequisites
@@ -53,45 +55,61 @@ secret-tool-run --source npm run dev                   # all three, every time
 ### From PyPI (Recommended)
 
 ```bash
-pip install secret-tool-run
+pip install kleys
 ```
 
 Or with uv:
 
 ```bash
-uv tool install secret-tool-run
+uv tool install kleys
 ```
 
 Or with pipx:
 
 ```bash
-pipx install secret-tool-run
+pipx install kleys
 ```
 
 ### From source
 
 ```bash
-git clone https://go.hugobatista.com/gh/secret-tool-run.git
-cd secret-tool-run
+git clone https://github.com/hugobatista/kleys.git
+cd kleys
 pip install .
 ```
 
 ## Usage
 
 ```bash
-secret-tool-run [OPTIONS] COMMAND [ARGS...]
+kleys [OPTIONS] COMMAND [ARGS...]
+kleys show [--app APP] [--password[=PASSWORD]]
+kleys clear [--app APP]
 ```
 
-### Options
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `run` | Execute a command with secrets from the keyring (default when no subcommand given) |
+| `show` | Display all stored secrets for an app |
+| `clear` | Delete all stored secrets for an app |
+
+### Run Options
 
 | Option | Description |
 |--------|-------------|
 | `--file FILE`, `-f FILE` | Secrets file path (default: `.env`) |
 | `--app APP`, `-a APP` | Keyring app identifier (default: current folder name) |
 | `--source`, `-s` | Source and export `.env` vars into the environment |
-| `--password[=PASSWORD]` | Encrypt secrets with a password (AES-256-CBC). If omitted, resolves from `SECRET_TOOL_PASSWORD` env var or prompts. Stored under a separate keyring key (`app_name-encrypted`). |
+| `--password[=PASSWORD]` | Encrypt secrets with a password (AES-256-CBC). If omitted, resolves from `SECRET_TOOL_PASSWORD` env var or prompts. |
 | `--plaintext` | Disable encryption, store/retrieve secrets as plaintext (default: encryption enabled). |
-| `--help`, `-h` | Show help message |
+
+### Show / Clear Options
+
+| Option | Description |
+|--------|-------------|
+| `--app APP`, `-a APP` | Keyring app identifier (default: current folder name) |
+| `--password[=PASSWORD]` | Decryption password (prompts if omitted and needed) |
 
 ### Environment
 
@@ -103,7 +121,7 @@ secret-tool-run [OPTIONS] COMMAND [ARGS...]
 
 ## Modes of Operation
 
-secret-tool-run has three modes for passing secrets to your command:
+kleys has three modes for passing secrets to your command:
 
 | Mode | How to enable | How secrets arrive | Writes to disk? |
 |------|--------------|-------------------|-----------------|
@@ -118,7 +136,7 @@ Pick the mode that matches how your tool reads secrets. The examples below show 
 ### Example 1: Python development with uv
 
 ```bash
-secret-tool-run uv run pywrangler dev
+kleys uv run pywrangler dev
 ```
 
 **What happens:**
@@ -130,7 +148,7 @@ secret-tool-run uv run pywrangler dev
 ### Example 2: Python project with hatch
 
 ```bash
-secret-tool-run hatch run dev
+kleys hatch run dev
 ```
 
 Perfect for running development servers where you need environment variables but don't want them persisted on disk.
@@ -138,10 +156,10 @@ Perfect for running development servers where you need environment variables but
 ### Example 3: Ansible playbook with environment variables
 
 ```bash
-secret-tool-run --source ansible-playbook site.yml
+kleys --source ansible-playbook site.yml
 ```
 
-**Before secret-tool-run:**
+**Before kleys:**
 ```bash
 source .env && ansible-playbook site.yml
 ```
@@ -157,7 +175,7 @@ Useful for any tool that expects secrets as environment variables — Ansible, T
 ### Example 4: GitHub Actions local testing with act
 
 ```bash
-secret-tool-run --file .secrets act --secret-file .secrets
+kleys --file .secrets act --secret-file .secrets
 ```
 
 **What happens:**
@@ -172,10 +190,10 @@ This is especially useful for testing GitHub Actions workflows locally while kee
 
 ```bash
 # Development environment
-secret-tool-run --app myproject-dev npm start
+kleys --app myproject-dev npm start
 
 # Production environment
-secret-tool-run --app myproject-prod npm start
+kleys --app myproject-prod npm start
 ```
 
 Each `--app` name is a separate keyring entry, allowing you to manage different secret sets (dev, staging, prod) for the same project.
@@ -183,7 +201,7 @@ Each `--app` name is a separate keyring entry, allowing you to manage different 
 ### Example 6: Docker commands
 
 ```bash
-secret-tool-run docker-compose up
+kleys docker-compose up
 ```
 
 Great for docker-compose files that source `.env` for configuration.
@@ -191,15 +209,15 @@ Great for docker-compose files that source `.env` for configuration.
 ### Example 7: Just viewing the secrets file path
 
 ```bash
-secret-tool-run env | grep SECRETS_FILE
+kleys env | grep SECRETS_FILE
 ```
 
-The `SECRETS_FILE` environment variable contains the absolute path to the secrets file created by secret-tool-run.
+The `SECRETS_FILE` environment variable contains the absolute path to the secrets file created by kleys.
 
 ### Example 8: File descriptor mode (no disk I/O)
 
 ```bash
-secret-tool-run act --secret-file @SECRETS@
+kleys act --secret-file @SECRETS@
 ```
 
 **What happens:**
@@ -223,10 +241,28 @@ secret-tool-run act --secret-file @SECRETS@
 ### Example 9: Docker with file descriptor mode
 
 ```bash
-secret-tool-run docker run --env-file @SECRETS@ myimage
+kleys docker run --env-file @SECRETS@ myimage
 ```
 
 Secrets are loaded from keyring and passed to Docker without ever touching the disk. The `@SECRETS@` token automatically enables zero-disk-I/O mode.
+
+### Example 10: View stored secrets
+
+```bash
+kleys show
+kleys show --app myproject
+```
+
+Displays all secrets stored for the current (or specified) app. Decrypts automatically when needed.
+
+### Example 11: Delete stored secrets
+
+```bash
+kleys clear
+kleys clear --app myproject
+```
+
+Deletes all secrets (both encrypted and plaintext) for the app. Useful for resetting or rotating credentials.
 
 ## Advanced Features
 
@@ -234,10 +270,10 @@ Secrets are loaded from keyring and passed to Docker without ever touching the d
 
 ```bash
 # Use a different file name
-secret-tool-run --file .env.production npm run build
+kleys --file .env.production npm run build
 
 # Use a path in a different directory
-secret-tool-run --file /tmp/my-secrets ./deploy.sh
+kleys --file /tmp/my-secrets ./deploy.sh
 ```
 
 ### SECRETS_FILE Environment Variable
@@ -246,9 +282,9 @@ In **file mode** and **FD mode**, your command receives `SECRETS_FILE` pointing 
 
 ```bash
 # File mode: points to temp .env
-secret-tool-run bash -c 'echo "Secrets are at: $SECRETS_FILE"'
+kleys bash -c 'echo "Secrets are at: $SECRETS_FILE"'
 # FD mode: points to /dev/fd/9
-secret-tool-run bash -c 'echo "Secrets are at: $SECRETS_FILE"' --secret-file @SECRETS@
+kleys bash -c 'echo "Secrets are at: $SECRETS_FILE"' --secret-file @SECRETS@
 ```
 
 In **source mode** (`--source`), `SECRETS_FILE` is not set — the secrets are already in the environment.
@@ -258,11 +294,11 @@ In **source mode** (`--source`), `SECRETS_FILE` is not set — the secrets are a
 For maximum security, use the `@SECRETS@` token in your command to pass secrets via file descriptor without writing to disk:
 
 ```bash
-secret-tool-run act --secret-file @SECRETS@
+kleys act --secret-file @SECRETS@
 ```
 
 **How it works:**
-- secret-tool-run detects the `@SECRETS@` token in your command arguments
+- kleys detects the `@SECRETS@` token in your command arguments
 - Loads secrets from keyring into memory only
 - Creates file descriptor at `/dev/fd/9` (no disk write)
 - Replaces `@SECRETS@` token with `/dev/fd/9` in all arguments
@@ -281,13 +317,13 @@ secret-tool-run act --secret-file @SECRETS@
 
 ✅ **Works with these tools:**
 ```bash
-secret-tool-run act --secret-file @SECRETS@
-secret-tool-run docker run --env-file @SECRETS@ image
+kleys act --secret-file @SECRETS@
+kleys docker run --env-file @SECRETS@ image
 ```
 
 Replaced tokens work just like file paths:
 ```bash
-secret-tool-run mycommand --config @SECRETS@ --output results.txt
+kleys mycommand --config @SECRETS@ --output results.txt
 # All @SECRETS@ tokens are replaced with /dev/fd/9
 ```
 
@@ -296,11 +332,11 @@ secret-tool-run mycommand --config @SECRETS@ --output results.txt
 For tools that expect secrets as actual environment variables (like Ansible, shell scripts, or tools that call `os.getenv`), use the `--source` flag:
 
 ```bash
-secret-tool-run --source ansible-playbook site.yml
+kleys --source ansible-playbook site.yml
 ```
 
 **How it works:**
-- Before running your command, secret-tool-run parses the secrets into `KEY=VALUE` pairs
+- Before running your command, kleys parses the secrets into `KEY=VALUE` pairs
 - These pairs are injected into the subprocess environment — your command sees them as real env vars
 - **No temp file is written** — secrets are loaded directly from keyring into memory
 - Works with `@SECRETS@` too — sources from keyring directly into env without touching disk
@@ -310,9 +346,9 @@ secret-tool-run --source ansible-playbook site.yml
 
 | Tool | Without --source | With --source |
 |------|-----------------|---------------|
-| Ansible | `source .env && ansible-playbook ...` | `secret-tool-run --source ansible-playbook ...` |
-| Terraform | `source .env && terraform plan` | `secret-tool-run --source terraform plan` |
-| Shell scripts | `source .env && ./deploy.sh` | `secret-tool-run --source ./deploy.sh` |
+| Ansible | `source .env && ansible-playbook ...` | `kleys --source ansible-playbook ...` |
+| Terraform | `source .env && terraform plan` | `kleys --source terraform plan` |
+| Shell scripts | `source .env && ./deploy.sh` | `kleys --source ./deploy.sh` |
 | Any `os.getenv`/`$VAR` consumer | needs vars in environment | vars are exported automatically |
 
 **Key difference:** without `--source`, secrets are written to a temp file and `SECRETS_FILE` env var is set.
@@ -320,7 +356,7 @@ With `--source`, secrets are loaded directly into memory — no temp file, no `S
 
 **Combined with `@SECRETS@`:**
 ```bash
-secret-tool-run --source ansible-playbook --vault-password-file @SECRETS@ site.yml
+kleys --source ansible-playbook --vault-password-file @SECRETS@ site.yml
 ```
 This both sources secrets into the environment AND passes one via file descriptor — maximum flexibility with zero disk writes.
 
@@ -330,16 +366,16 @@ Encryption is **enabled by default**. All secrets are encrypted with AES-256-CBC
 
 ```bash
 # Default: prompts for password (with confirmation) on first use
-secret-tool-run npm start
+kleys npm start
 
 # Password from environment variable
-SECRET_TOOL_PASSWORD=hunter2 secret-tool-run npm start
+SECRET_TOOL_PASSWORD=hunter2 kleys npm start
 
 # Explicit password (visible in ps — use with care)
-secret-tool-run --password=hunter2 npm start
+kleys --password=hunter2 npm start
 
 # Opt out of encryption
-secret-tool-run --plaintext npm start
+kleys --plaintext npm start
 ```
 
 **How it works:**
@@ -366,19 +402,19 @@ secret-tool-run --plaintext npm start
 
 **Key derivation:** Uses PBKDF2-HMAC-SHA256 with 600,000 iterations and a random 16-byte salt for each encryption operation.
 
-**CI/CD note:** If you run `secret-tool-run` in automation without a password, you must add `--plaintext` or set `SECRET_TOOL_PASSWORD`:
+**CI/CD note:** If you run `kleys` in automation without a password, you must add `--plaintext` or set `SECRET_TOOL_PASSWORD`:
 ```bash
 # After (encryption is default — choose one):
-secret-tool-run --plaintext deploy.sh
+kleys --plaintext deploy.sh
 # OR
-SECRET_TOOL_PASSWORD=$(cat /etc/secret.txt) secret-tool-run deploy.sh
+SECRET_TOOL_PASSWORD=$(cat /etc/secret.txt) kleys deploy.sh
 ```
 
 ### First-Run Setup
 
 On first use (when secrets aren't in keyring):
 
-1. secret-tool-run prompts: "Paste your secrets content..."
+1. kleys prompts: "Paste your secrets content..."
 2. Paste your `.env` content (KEY=VALUE format)
 3. Press `Ctrl-D` to finish (or `Ctrl-C` to cancel)
 4. Secrets are encrypted and stored in system keyring
@@ -411,7 +447,7 @@ for item in col.get_all_items():
 
 This is **not a vulnerability** in the keyring — it is by design. The keyring service provides session-level isolation (secrets are encrypted at rest when the session is locked), but once you unlock your keyring at login, any process sharing your D-Bus session can retrieve every secret in plaintext.
 
-**This is why secret-tool-run encrypts by default.** When using encrypted mode (AES-256-CBC, enabled by default):
+**This is why kleys encrypts by default.** When using encrypted mode (AES-256-CBC, enabled by default):
 
 - An enumerating attacker sees only **ciphertext** — meaningless without the decryption password
 - The decryption password is **never stored in the keyring** (resolved via interactive prompt, environment variable, or `--password` flag)
@@ -419,12 +455,12 @@ This is **not a vulnerability** in the keyring — it is by design. The keyring 
 
 **When `--plaintext` is used**, secrets in the keyring are as exposed as `.env` files on disk — any process with D-Bus access can read them. Reserve `--plaintext` for ephemeral or isolated environments (e.g., CI containers where D-Bus access is restricted).
 
-**⚠️ Important**: While secret-tool-run improves security, temporary files are still written to disk briefly in file mode. For maximum security:
+**⚠️ Important**: While kleys improves security, temporary files are still written to disk briefly in file mode. For maximum security:
 - **Use `@SECRETS@`** for tools that accept a file path (FD mode — zero disk I/O)
 - **Use `--source`** for tools that need env vars (source mode — zero disk I/O)
 - Use encrypted home directories
 - Ensure your keyring is properly locked when not in use
-- Be cautious running secret-tool-run on shared systems
+- Be cautious running kleys on shared systems
 
 ## Troubleshooting
 
@@ -434,10 +470,10 @@ The command may require a regular file instead of a file descriptor. Try without
 
 ```bash
 # If this fails:
-secret-tool-run mycommand --file @SECRETS@
+kleys mycommand --file @SECRETS@
 
 # Try this instead:
-secret-tool-run mycommand
+kleys mycommand
 ```
 
 ### "No secrets found" on every run
@@ -445,7 +481,7 @@ secret-tool-run mycommand
 The keyring store may have failed silently. Run with `--plaintext` and `--source` to trigger a fresh prompt:
 
 ```bash
-secret-tool-run --plaintext --source your-command
+kleys --plaintext --source your-command
 ```
 
 ### Command fails but secrets file remains
@@ -458,25 +494,22 @@ rm .env  # or your custom secrets file name
 
 ### Want to delete stored secrets
 
-secret-tool-run does not include a delete command. Use your system's keyring tool to remove entries:
+Use the `clear` subcommand to delete all stored secrets for an app:
 
 ```bash
-# On Linux (libsecret):
-secret-tool clear app "your-app-name"
-
-# Using the Python keyring library:
-python -c "import keyring; keyring.delete_password('your-app-name', '__secrets__')"
+kleys clear
+kleys clear --app myproject
 ```
 
 ## Uninstallation
 
 ```bash
-pip uninstall secret-tool-run
+pip uninstall kleys
 ```
 
 Or with the tool installer you used:
 
 ```bash
-uv tool uninstall secret-tool-run  # if installed with uv
-pipx uninstall secret-tool-run     # if installed with pipx
+uv tool uninstall kleys  # if installed with uv
+pipx uninstall kleys     # if installed with pipx
 ```
