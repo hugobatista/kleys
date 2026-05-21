@@ -1,10 +1,10 @@
 import sys
-from pathlib import Path
 from typing import Any
 
 from kleys import crypto, modes
 from kleys import keyring_ as kr
 from kleys.console import error, info, success, warn
+from kleys.modes import resolve_app_name
 from kleys.password import resolve_decrypt_password
 
 _TOP_HELP = """\
@@ -187,14 +187,14 @@ def _parse_clear_options(args: list[str]) -> dict[str, Any]:
 
 def _handle_run(args: list[str]) -> None:
     opts, command = _parse_options(args)
-    opts["app_name"] = opts["app_name"] or Path.cwd().name
+    opts["app_name"] = resolve_app_name(opts["app_name"])
     opts["command"] = command
     modes.dispatch(**opts)
 
 
 def _handle_show(args: list[str]) -> None:
     opts = _parse_show_options(args)
-    app_name = opts["app_name"] or Path.cwd().name
+    app_name = resolve_app_name(opts["app_name"])
 
     encrypted_key = f"{app_name}-encrypted"
     encrypted_content = kr.lookup(encrypted_key)
@@ -227,7 +227,7 @@ def _handle_show(args: list[str]) -> None:
 
 def _handle_clear(args: list[str]) -> None:
     opts = _parse_clear_options(args)
-    app_name = opts["app_name"] or Path.cwd().name
+    app_name = resolve_app_name(opts["app_name"])
 
     if not opts["force"]:
         if not sys.stdin.isatty():

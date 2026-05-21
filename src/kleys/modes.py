@@ -16,6 +16,11 @@ from kleys.password import (
 from kleys.utils import create_temp_env, setup_cleanup
 
 
+def resolve_app_name(name: str | None) -> str:
+    resolved = name or Path.cwd().name
+    return resolved if resolved else "root"
+
+
 def _parse_env(content: str) -> dict[str, str]:
     env: dict[str, str] = {}
     for line in content.splitlines():
@@ -239,7 +244,7 @@ def dispatch(
     plaintext_mode: bool,
 ) -> None:
     setup_cleanup()
-    resolved_app = app_name if app_name else Path.cwd().name
+    resolved_app = resolve_app_name(app_name)
     use_fd = any("@SECRETS@" in arg for arg in command)
     if not use_fd and os.path.exists(file):
         if _offer_store_file(file, resolved_app, password, plaintext_mode):
