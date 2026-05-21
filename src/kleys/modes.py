@@ -206,7 +206,10 @@ def _exec_fd(command: list[str], secrets_content: str) -> int:
 
     def _writer() -> None:
         try:
-            os.write(w_fd, secrets_content.encode("utf-8"))
+            data = secrets_content.encode("utf-8")
+            while data:
+                n = os.write(w_fd, data)
+                data = data[n:]
         finally:
             os.close(w_fd)
 

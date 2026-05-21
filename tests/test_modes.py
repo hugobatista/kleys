@@ -302,7 +302,7 @@ class TestExecSource:
 class TestExecFD:
     def test_creates_pipe_and_runs(self, mocker: MockerFixture) -> None:
         mocker.patch("os.pipe", return_value=(10, 11))
-        mocker.patch("os.write")
+        mocker.patch("os.write", side_effect=lambda fd, data: len(data))
         mocker.patch("os.close")
         import subprocess
 
@@ -319,7 +319,7 @@ class TestExecFD:
 
     def test_no_at_secrets(self, mocker: MockerFixture) -> None:
         mocker.patch("os.pipe", return_value=(10, 11))
-        mocker.patch("os.write")
+        mocker.patch("os.write", side_effect=lambda fd, data: len(data))
         mocker.patch("os.close")
         import subprocess
 
@@ -331,7 +331,7 @@ class TestExecFD:
 
     def test_multiple_at_secrets_tokens(self, mocker: MockerFixture) -> None:
         mocker.patch("os.pipe", return_value=(10, 11))
-        mocker.patch("os.write")
+        mocker.patch("os.write", side_effect=lambda fd, data: len(data))
         mocker.patch("os.close")
         import subprocess
 
@@ -397,7 +397,7 @@ class TestDispatch:
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         mocker.patch("os.pipe", return_value=(10, 11))
-        mocker.patch("os.write")
+        mocker.patch("os.write", side_effect=lambda fd, data: len(data))
         mocker.patch("os.close")
         mocker.patch("sys.stdin.read", return_value="K=V\n")
         mocker.patch("kleys.utils.setup_cleanup")
