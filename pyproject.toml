@@ -1,0 +1,79 @@
+[project]
+name = "kleys"
+version = "0.4.0"
+description = "Execute commands with secrets loaded encrypted from your system keyring"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-only" }
+
+dependencies = [
+    "typer>=0.12",
+    "keyring>=25.0",
+    "cryptography>=44.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-mock>=3",
+    "pytest-cov>=6",
+    "mypy>=1",
+    "ruff>=0.11",
+]
+
+[project.scripts]
+kleys = "kleys.cli:main"
+
+[tool.uv]
+exclude-newer = "30 days"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kleys"]
+
+[tool.hatch.envs.default]
+features = ["dev"]
+
+[tool.hatch.envs.default.scripts]
+lint = "ruff check . --fix"
+format = "ruff format ."
+format-check = "ruff format --check ."
+test = "pytest src tests --cov=src/kleys --cov-fail-under=100 -v"
+typecheck = "mypy src --strict --no-incremental"
+validate = ["lint", "format-check", "test", "typecheck"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/kleys"]
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+files = ["src"]
+exclude = ["tests/"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
