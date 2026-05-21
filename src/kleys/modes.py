@@ -65,7 +65,7 @@ def _offer_store_file(
         if pw is None:
             console.error(
                 "Error: No password available for encryption."
-                " Use --plaintext, SECRET_TOOL_PASSWORD, or"
+                " Use --plaintext, KLEYS_PASSWORD, or"
                 " --password PASSWORD."
             )
             sys.exit(1)
@@ -98,7 +98,7 @@ def _load_secrets(
                 console.error(
                     "Error: Encrypted entry found but no password"
                     " available. Use --password=PASSWORD or set"
-                    " SECRET_TOOL_PASSWORD."
+                    " KLEYS_PASSWORD."
                 )
                 sys.exit(1)
             decrypted = crypto.decrypt(encrypted_content, pw)
@@ -143,7 +143,7 @@ def _load_secrets(
         if pw is None:
             console.error(
                 "Error: No password available for encryption."
-                " Use --plaintext, SECRET_TOOL_PASSWORD, or"
+                " Use --plaintext, KLEYS_PASSWORD, or"
                 " --password PASSWORD."
             )
             sys.exit(1)
@@ -162,10 +162,16 @@ def _load_secrets(
     return secrets_input
 
 
+def _env(**extra: str) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k != "KLEYS_PASSWORD"}
+    env.update(extra)
+    return env
+
+
 def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
     path = create_temp_env(secrets_content)
     console.cmd(f"\u2192 Running: {' '.join(command)}")
-    env = {**os.environ, "SECRETS_FILE": path}
+    env = _env(SECRETS_FILE=path)
     try:
         result = subprocess.run(command, env=env)
     except FileNotFoundError:
@@ -181,7 +187,7 @@ def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
 
 def _exec_source(command: list[str], secrets_content: str) -> int:
     parsed = _parse_env(secrets_content)
-    env = {**os.environ, **parsed}
+    env = _env(**parsed)
     console.cmd(f"\u2192 Running: {' '.join(command)}")
     try:
         result = subprocess.run(command, env=env)
@@ -212,7 +218,7 @@ def _exec_fd(command: list[str], secrets_content: str) -> int:
     try:
         result = subprocess.run(
             modified_args,
-            env={**os.environ, "SECRETS_FILE": fd_path},
+            env=_env(SECRETS_FILE=fd_path),
             pass_fds=(r_fd,),
         )
     finally:
@@ -237,11 +243,11 @@ def dispatch(
             os.remove(file)
         else:
             if source_mode:
-                env = {**os.environ, **_parse_env(Path(file).read_text())}
+                env = _env(**_parse_env(Path(file).read_text()))
                 console.cmd(f"\u2192 Running: {' '.join(command)}")
                 subprocess.run(command, env=env)
             else:
-                env = {**os.environ, "SECRETS_FILE": os.path.abspath(file)}
+                env = _env(SECRETS_FILE=os.path.abspath(file))
                 console.cmd(f"\u2192 Running: {' '.join(command)}")
                 subprocess.run(command, env=env)
             return

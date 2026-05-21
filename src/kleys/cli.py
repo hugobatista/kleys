@@ -38,7 +38,7 @@ Options:
   --source, -s            Source and export .env vars into the environment
   --password PASSWORD     Encrypt secrets with a password (AES-256-CBC).
                           If PASSWORD is omitted, resolves from
-                          SECRET_TOOL_PASSWORD env var or prompts.
+                          KLEYS_PASSWORD env var or prompts.
   --plaintext             Disable encryption, store/retrieve secrets as
                           plaintext (default: encryption is enabled).
   --help, -h              Show this help message
@@ -111,6 +111,10 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
             if i + 1 >= len(args):
                 error("error: --password requires a value")
                 sys.exit(1)
+            warn(
+                "Warning: --password is visible in process listings (ps aux)."
+                " Use KLEYS_PASSWORD env var or interactive prompt instead."
+            )
             opts["password"] = args[i + 1]
             i += 2
         elif a == "--plaintext":
@@ -142,6 +146,10 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
             if i + 1 >= len(args):
                 error("error: --password requires a value")
                 sys.exit(1)
+            warn(
+                "Warning: --password is visible in process listings (ps aux)."
+                " Use KLEYS_PASSWORD env var or interactive prompt instead."
+            )
             opts["password"] = args[i + 1]
             i += 2
         else:
@@ -191,7 +199,7 @@ def _handle_show(args: list[str]) -> None:
             error(
                 "Error: Encrypted entry found but no password"
                 " available. Use --password=PASSWORD or set"
-                " SECRET_TOOL_PASSWORD."
+                " KLEYS_PASSWORD."
             )
             sys.exit(1)
         secrets = crypto.decrypt(encrypted_content, password)

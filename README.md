@@ -154,7 +154,7 @@ kleys clear [--app APP]
 | `--file FILE`, `-f FILE` | Secrets file path (default: `.env`) |
 | `--app APP`, `-a APP` | Keyring app identifier (default: current folder name) |
 | `--source`, `-s` | Source and export `.env` vars into the environment |
-| `--password[=PASSWORD]` | Encrypt secrets with a password (AES-256-CBC). If omitted, resolves from `SECRET_TOOL_PASSWORD` env var or prompts. |
+| `--password[=PASSWORD]` | Encrypt secrets with a password (AES-256-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
 | `--plaintext` | Disable encryption, store/retrieve secrets as plaintext (default: encryption enabled). |
 
 ### Show / Clear Options
@@ -168,7 +168,7 @@ kleys clear [--app APP]
 
 | Variable | Description |
 |----------|-------------|
-| `SECRET_TOOL_PASSWORD` | Encryption password used automatically for encrypt/decrypt when set, unless overridden by `--password=PASSWORD`. |
+| `KLEYS_PASSWORD` | Encryption password used automatically for encrypt/decrypt when set, unless overridden by `--password=PASSWORD`. |
 
 > **Encrypted by default (AES-256-CBC).** Use `--plaintext` to opt out (not recommended).
 
@@ -422,7 +422,7 @@ Encryption is **enabled by default**. All secrets are encrypted with AES-256-CBC
 kleys npm start
 
 # Password from environment variable
-SECRET_TOOL_PASSWORD=hunter2 kleys npm start
+KLEYS_PASSWORD=hunter2 kleys npm start
 
 # Explicit password (visible in ps — use with care)
 kleys --password=hunter2 npm start
@@ -435,7 +435,7 @@ kleys --plaintext npm start
 
 1. Encrypted entries are stored under a separate keyring key: `app_name-encrypted` (distinct from the plaintext key `app_name`).
 2. On lookup, the tool tries the encrypted key first. If found, it resolves the password and decrypts.
-3. On first run (no existing entry), you'll be prompted for a password (with confirmation) unless `SECRET_TOOL_PASSWORD` or `--password=VALUE` is set.
+3. On first run (no existing entry), you'll be prompted for a password (with confirmation) unless `KLEYS_PASSWORD` or `--password=VALUE` is set.
 4. Existing plaintext entries remain readable with a warning: `ℹ Found plaintext entry — not encrypted`. New entries will be encrypted.
 5. Use `--plaintext` to disable encryption entirely (e.g., for CI/CD scripts that can't provide a password).
 
@@ -444,7 +444,7 @@ kleys --plaintext npm start
 | Priority | Source |
 |----------|--------|
 | 1 | `--password=VALUE` (explicit) |
-| 2 | `SECRET_TOOL_PASSWORD` env var |
+| 2 | `KLEYS_PASSWORD` env var |
 | 3 | Interactive prompt (with confirmation when storing) |
 
 **Password confirmation:** When prompted interactively to create a new encrypted entry, the password is asked twice to prevent typos. The decrypt path (loading existing entries) prompts once without confirmation.
@@ -455,12 +455,12 @@ kleys --plaintext npm start
 
 **Key derivation:** Uses PBKDF2-HMAC-SHA256 with 600,000 iterations and a random 16-byte salt for each encryption operation.
 
-**CI/CD note:** If you run `kleys` in automation without a password, you must add `--plaintext` or set `SECRET_TOOL_PASSWORD`:
+**CI/CD note:** If you run `kleys` in automation without a password, you must add `--plaintext` or set `KLEYS_PASSWORD`:
 ```bash
 # After (encryption is default — choose one):
 kleys --plaintext deploy.sh
 # OR
-SECRET_TOOL_PASSWORD=$(cat /etc/secret.txt) kleys deploy.sh
+KLEYS_PASSWORD=$(cat /etc/secret.txt) kleys deploy.sh
 ```
 
 ### First-Run Setup

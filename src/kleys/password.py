@@ -10,7 +10,7 @@ from kleys.console import error
 def resolve_encrypt_password(explicit: str | None) -> str | None:
     if explicit:
         return explicit
-    env_pw = os.environ.get("SECRET_TOOL_PASSWORD")
+    env_pw = os.environ.get("KLEYS_PASSWORD")
     if env_pw:
         return env_pw
     if not sys.stdin.isatty():
@@ -29,7 +29,7 @@ def resolve_encrypt_password(explicit: str | None) -> str | None:
 def resolve_decrypt_password(explicit: str | None) -> str | None:
     if explicit:
         return explicit
-    env_pw = os.environ.get("SECRET_TOOL_PASSWORD")
+    env_pw = os.environ.get("KLEYS_PASSWORD")
     if env_pw:
         return env_pw
     if not sys.stdin.isatty():

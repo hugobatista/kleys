@@ -18,12 +18,12 @@ class TestResolveEncryptPassword:
         assert result == "explicit-pw"
 
     def test_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("SECRET_TOOL_PASSWORD", "env-password")
+        monkeypatch.setenv("KLEYS_PASSWORD", "env-password")
         result = resolve_encrypt_password(None)
         assert result == "env-password"
 
     def test_env_var_overrides_prompt(self, mocker: MockerFixture) -> None:
-        mocker.patch.object(os, "environ", {"SECRET_TOOL_PASSWORD": "env-val"})
+        mocker.patch.object(os, "environ", {"KLEYS_PASSWORD": "env-val"})
         prompt = mocker.patch("typer.prompt")
         result = resolve_encrypt_password(None)
         assert result == "env-val"
@@ -67,7 +67,7 @@ class TestResolveEncryptPassword:
     def test_explicit_takes_priority_over_env(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("SECRET_TOOL_PASSWORD", "env-pw")
+        monkeypatch.setenv("KLEYS_PASSWORD", "env-pw")
         result = resolve_encrypt_password("explicit-pw")
         assert result == "explicit-pw"
 
@@ -87,7 +87,7 @@ class TestResolveDecryptPassword:
         assert result == "explicit-pw"
 
     def test_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("SECRET_TOOL_PASSWORD", "env-password")
+        monkeypatch.setenv("KLEYS_PASSWORD", "env-password")
         result = resolve_decrypt_password(None)
         assert result == "env-password"
 
