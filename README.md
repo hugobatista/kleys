@@ -1,4 +1,8 @@
-[![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/kleys?logo=github&label=latest)](https://github.com/hugobatista/kleys/releases)
+[![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/kleys?logo=github&label=latest)](https://go.hugobatista.com/gh/kleys/releases)
+[![Lint](https://img.shields.io/github/actions/workflow/status/hugobatista/kleys/lint.yml?label=Lint)](https://go.hugobatista.com/gh/kleys/actions/workflows/lint.yml)
+[![Test](https://img.shields.io/github/actions/workflow/status/hugobatista/kleys/test.yml?label=Test)](https://go.hugobatista.com/gh/kleys/actions/workflows/test.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/kleys.svg)](https://pypi.org/project/kleys)
+[![GHCR Tag](https://img.shields.io/github/v/tag/hugobatista/kleys?logo=docker&logoColor=white&label=GHCR)](https://go.hugobatista.com/gh/kleys/packages)
 
 # kleys 🔐
 
@@ -76,6 +80,33 @@ pipx install kleys
 git clone https://github.com/hugobatista/kleys.git
 cd kleys
 pip install .
+```
+
+### Docker
+
+Pull the latest image from GHCR:
+
+```bash
+docker pull ghcr.io/hugobatista/kleys:latest
+```
+
+Build locally:
+
+```bash
+docker build -t kleys .
+```
+
+Run:
+
+```bash
+# Default entrypoint is `kleys` — pass subcommands directly
+docker run --rm ghcr.io/hugobatista/kleys:latest show --help
+
+# Mount your host keyring (D-Bus) so kleys can access the system keyring
+docker run --rm \
+  -v /run/user/$(id -u)/bus:/run/user/1000/bus \
+  -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+  ghcr.io/hugobatista/kleys:latest run --source your-command
 ```
 
 ## Usage

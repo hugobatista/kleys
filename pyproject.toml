@@ -47,6 +47,7 @@ format-check = "ruff format --check ."
 test = "pytest src tests --cov=src/kleys --cov-fail-under=100 -v"
 typecheck = "mypy src --strict --no-incremental"
 validate = ["lint", "format", "test", "typecheck"]
+check = ["lint", "format", "test", "typecheck"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
