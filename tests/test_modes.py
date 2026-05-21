@@ -76,9 +76,7 @@ class TestOfferStoreFile:
         assert result is True
         kr_store.assert_called_once_with("myapp-encrypted", "encrypted-blob")
 
-    def test_user_declines(
-        self, mocker: MockerFixture, tmp_path: Path
-    ) -> None:
+    def test_user_declines(self, mocker: MockerFixture, tmp_path: Path) -> None:
         file = tmp_path / ".env"
         file.write_text("K=v\n")
         mocker.patch("typer.prompt", return_value="n")

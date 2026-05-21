@@ -80,9 +80,7 @@ def _offer_store_file(
                 "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
-        console.success(
-            f"\u2713 Stored in keyring as '{app_name}' (encrypted)"
-        )
+        console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
     return True
 
 
@@ -160,9 +158,7 @@ def _load_secrets(
                 "  or on Linux: apt install python3-secretstorage"
             )
             sys.exit(1)
-        console.success(
-            f"\u2713 Stored in keyring as '{app_name}' (encrypted)"
-        )
+        console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
     return secrets_input
 
 

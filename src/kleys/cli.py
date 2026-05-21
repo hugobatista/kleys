@@ -196,9 +196,7 @@ def _handle_show(args: list[str]) -> None:
             sys.exit(1)
         secrets = crypto.decrypt(encrypted_content, password)
         if secrets is None:
-            error(
-                "Error: Decryption failed. Wrong password or corrupted data."
-            )
+            error("Error: Decryption failed. Wrong password or corrupted data.")
             sys.exit(1)
         info(f"Secrets for '{app_name}':")
         info(secrets)

@@ -31,9 +31,7 @@ class TestResolveEncryptPassword:
 
     def test_prompt_with_confirm(self, mocker: MockerFixture) -> None:
         mocker.patch("sys.stdin.isatty", return_value=True)
-        mocker.patch(
-            "typer.prompt", side_effect=["my-password", "my-password"]
-        )
+        mocker.patch("typer.prompt", side_effect=["my-password", "my-password"])
         result = resolve_encrypt_password(None)
         assert result == "my-password"
 

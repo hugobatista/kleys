@@ -34,9 +34,7 @@ class TestLookup:
         result = kr.lookup("myapp")
         assert result is None
 
-    def test_returns_none_on_keyring_error(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_returns_none_on_keyring_error(self, mocker: MockerFixture) -> None:
         keyring.get_password.side_effect = keyring.errors.KeyringError("fail")
         result = kr.lookup("myapp")
         assert result is None
@@ -49,9 +47,7 @@ class TestDelete:
         assert result is True
         keyring.delete_password.assert_called_once_with("myapp", "__secrets__")
 
-    def test_returns_false_on_delete_error(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_returns_false_on_delete_error(self, mocker: MockerFixture) -> None:
         keyring.delete_password.side_effect = (
             keyring.errors.PasswordDeleteError("fail")
         )
