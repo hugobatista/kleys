@@ -447,6 +447,30 @@ class TestMainRouting:
         mock_show.assert_not_called()
         mock_clear.assert_not_called()
 
+    def test_version_exits(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["--version"])
+        assert exc.value.code == 0
+        mock_run.assert_not_called()
+        mock_show.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_version_short_exits(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["-V"])
+        assert exc.value.code == 0
+        mock_run.assert_not_called()
+        mock_show.assert_not_called()
+        mock_clear.assert_not_called()
+
     def test_run_subcommand(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
         mock_show = mocker.patch("kleys.cli._handle_show")

@@ -1,7 +1,7 @@
 import sys
 from typing import Any
 
-from kleys import crypto, modes
+from kleys import __version__, crypto, modes
 from kleys import keyring_ as kr
 from kleys.console import error, info, success, warn
 from kleys.modes import resolve_app_name
@@ -21,6 +21,14 @@ Use 'kleys run --help' for run options.
 Use 'kleys show --help' for show options.
 Use 'kleys clear --help' for clear options.
 """
+
+_VERSION_HELP = """\
+kleys {version}
+"""
+
+
+def _top_help() -> str:
+    return f"kleys {__version__}\n\n{_TOP_HELP}"
 
 _RUN_HELP = """\
 Usage: kleys run [OPTIONS] COMMAND [ARGS...]
@@ -265,11 +273,15 @@ def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
 
     if not args:
-        sys.stdout.write(_TOP_HELP)
+        sys.stdout.write(_top_help())
         sys.exit(1)
 
+    if args[0] in ("--version", "-V"):
+        sys.stdout.write(_VERSION_HELP.format(version=__version__))
+        sys.exit(0)
+
     if args[0] in ("--help", "-h"):
-        sys.stdout.write(_TOP_HELP)
+        sys.stdout.write(_top_help())
         sys.exit(0)
 
     subcommand = args[0]
