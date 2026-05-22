@@ -243,7 +243,7 @@ def _handle_show(args: list[str]) -> None:
         if password is None:
             error(
                 "Error: Encrypted entry found but no password"
-                " available. Use --password=PASSWORD or set"
+                " available. Use --password PASSWORD or set"
                 " KLEYS_PASSWORD."
             )
             sys.exit(1)

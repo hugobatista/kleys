@@ -8,7 +8,7 @@
 
 *κλείς (kleís) — Greek for "key". Because your secrets should live in a keyring, not a `.env` file.*
 
-**Execute commands with secrets fetched encrypted from your keyring — never stored on disk. Works on Linux, macOS, and Windows.**
+**Execute commands with secrets fetched encrypted from your keyring, eliminating permanent `.env` files on disk. Works on Linux, macOS, and Windows.**
 
 kleys is a CLI tool that stores secrets **encrypted** (Fernet/AES-128-CBC, enabled by default) in your system's keyring, then loads them at runtime to run your commands — eliminating `.env` files from disk. Perfect for developers who want to keep credentials off the filesystem while maintaining a smooth development workflow.
 
@@ -135,7 +135,7 @@ docker run --rm kleys clear --key test
 
 ```bash
 kleys [OPTIONS] COMMAND [ARGS...]
-kleys show [--key KEY] [--password[=PASSWORD]]
+kleys show [--key KEY] [--password PASSWORD]
 kleys clear [--key KEY]
 ```
 
@@ -154,7 +154,7 @@ kleys clear [--key KEY]
 | `--secrets-file FILE`, `-f FILE` | Path used to expose secrets to the subprocess in file mode (default mode). A temp file is created at this path with the secrets and `SECRETS_FILE` env var points to it. If FILE already exists, kleys offers to import it into the keyring instead (default: `.env`) |
 | `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
 | `--export`, `-e` | Export secrets as environment variables directly to the subprocess (overrides file mode, no temp file created). The secrets content must be in valid `KEY=VALUE` format per line — the user is responsible for correct formatting. |
-| `--password[=PASSWORD]` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
+| `--password PASSWORD` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
 | `--unencrypted`, `-u` | Disable encryption, store/retrieve secrets as plaintext (default: encryption enabled). |
 
 ### Show / Clear Options
@@ -162,13 +162,13 @@ kleys clear [--key KEY]
 | Option | Description |
 |--------|-------------|
 | `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
-| `--password[=PASSWORD]` | Decryption password (prompts if omitted and needed) |
+| `--password PASSWORD` | Decryption password (prompts if omitted and needed) |
 
 ### Environment
 
 | Variable | Description |
 |----------|-------------|
-| `KLEYS_PASSWORD` | Encryption password used automatically for encrypt/decrypt when set, unless overridden by `--password=PASSWORD`. |
+| `KLEYS_PASSWORD` | Encryption password used automatically for encrypt/decrypt when set, unless overridden by `--password PASSWORD`. |
 
 > **Encrypted by default (Fernet/AES-128-CBC).** Use `--unencrypted` to opt out (not recommended).
 
@@ -425,7 +425,7 @@ kleys npm start
 KLEYS_PASSWORD=hunter2 kleys npm start
 
 # Explicit password (visible in ps — use with care)
-kleys --password=hunter2 npm start
+kleys --password hunter2 npm start
 
 # Opt out of encryption
 kleys --unencrypted npm start
@@ -435,7 +435,7 @@ kleys --unencrypted npm start
 
 1. Encrypted entries are stored under a separate keyring key: `app_name-encrypted` (distinct from the plaintext key `app_name`).
 2. On lookup, the tool tries the encrypted key first. If found, it resolves the password and decrypts.
-3. On first run (no existing entry), you'll be prompted for a password (with confirmation) unless `KLEYS_PASSWORD` or `--password=VALUE` is set.
+3. On first run (no existing entry), you'll be prompted for a password (with confirmation) unless `KLEYS_PASSWORD` or `--password VALUE` is set.
 4. Existing plaintext entries remain readable with a warning: `ℹ Found plaintext entry — not encrypted`. New entries will be encrypted.
 5. Use `--unencrypted` to disable encryption entirely (e.g., for CI/CD scripts that can't provide a password).
 
@@ -443,7 +443,7 @@ kleys --unencrypted npm start
 
 | Priority | Source |
 |----------|--------|
-| 1 | `--password=VALUE` (explicit) |
+| 1 | `--password VALUE` (explicit) |
 | 2 | `KLEYS_PASSWORD` env var |
 | 3 | Interactive prompt (with confirmation when storing) |
 

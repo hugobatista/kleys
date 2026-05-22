@@ -102,7 +102,7 @@ def _load_secrets(
             if pw is None:
                 console.error(
                     "Error: Encrypted entry found but no password"
-                    " available. Use --password=PASSWORD or set"
+                    " available. Use --password PASSWORD or set"
                     " KLEYS_PASSWORD."
                 )
                 sys.exit(1)
