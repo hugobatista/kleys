@@ -43,7 +43,7 @@ def _offer_store_file(
     console.info(f"\u2139 Found existing local file: {file}")
     try:
         answer = typer.prompt(
-            f"Store this file in the keyring for app='{app_name}'? (y/n)"
+            f"Store this file in the keyring for key='{app_name}'? (y/n)"
         )
     except typer.Abort:
         return False
@@ -70,7 +70,7 @@ def _offer_store_file(
         if pw is None:
             console.error(
                 "Error: No password available for encryption."
-                " Use --plaintext, KLEYS_PASSWORD, or"
+                " Use --unencrypted, KLEYS_PASSWORD, or"
                 " --password PASSWORD."
             )
             sys.exit(1)
@@ -118,11 +118,11 @@ def _load_secrets(
     if plain_content is not None:
         if not plaintext_mode:
             console.info(
-                f"\u2139 Found plaintext entry for app="
+                f"\u2139 Found plaintext entry for key="
                 f"'{app_name}' \u2014 unencrypted"
             )
         return plain_content
-    console.warn(f"\u26a0 No secrets found for app='{app_name}' in keyring.")
+    console.warn(f"\u26a0 No secrets found for key='{app_name}' in keyring.")
     console.info("Paste secrets content (KEY=VALUE), then press Ctrl-D:")
     console.info("(Press Ctrl-C to cancel)")
     secrets_input = sys.stdin.read()
@@ -148,7 +148,7 @@ def _load_secrets(
         if pw is None:
             console.error(
                 "Error: No password available for encryption."
-                " Use --plaintext, KLEYS_PASSWORD, or"
+                " Use --unencrypted, KLEYS_PASSWORD, or"
                 " --password PASSWORD."
             )
             sys.exit(1)
@@ -182,7 +182,7 @@ def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
     except FileNotFoundError:
         console.error(
             f"Error: Command not found: {command[0]!r}.\n"
-            "  Use --source to source variables into the environment,\n"
+            "  Use --export to export variables into the environment,\n"
             "  wrap in sh -c '<command>' for shell built-ins,\n"
             "  or specify a valid executable."
         )
@@ -264,7 +264,7 @@ def dispatch(
         if sys.platform == "win32":
             console.error(
                 "Error: @SECRETS@ (FD mode) is not supported on Windows."
-                " Use --source or file mode instead."
+                " Use --export or --secrets-file instead."
             )
             sys.exit(1)
         sys.exit(_exec_fd(command, secrets_content))

@@ -26,33 +26,35 @@ class TestParseOptions:
         with pytest.raises(SystemExit):
             cli._parse_options(["-h"])
 
-    def test_file_option(self) -> None:
-        opts, cmd = cli._parse_options(["--file", "custom.env", "run", "test"])
+    def test_secrets_file_option(self) -> None:
+        opts, cmd = cli._parse_options(
+            ["--secrets-file", "custom.env", "run", "test"]
+        )
         assert opts["file"] == "custom.env"
         assert cmd == ["run", "test"]
 
-    def test_file_short(self) -> None:
+    def test_secrets_file_short(self) -> None:
         opts, cmd = cli._parse_options(["-f", "custom.env", "run"])
         assert opts["file"] == "custom.env"
         assert cmd == ["run"]
 
-    def test_app_option(self) -> None:
-        opts, cmd = cli._parse_options(["--app", "myapp", "run", "test"])
+    def test_key_option(self) -> None:
+        opts, cmd = cli._parse_options(["--key", "myapp", "run", "test"])
         assert opts["app_name"] == "myapp"
         assert cmd == ["run", "test"]
 
-    def test_app_short(self) -> None:
-        opts, cmd = cli._parse_options(["-a", "myapp", "run"])
+    def test_key_short(self) -> None:
+        opts, cmd = cli._parse_options(["-k", "myapp", "run"])
         assert opts["app_name"] == "myapp"
         assert cmd == ["run"]
 
-    def test_source_flag(self) -> None:
-        opts, cmd = cli._parse_options(["--source", "run"])
+    def test_export_flag(self) -> None:
+        opts, cmd = cli._parse_options(["--export", "run"])
         assert opts["source_mode"] is True
         assert cmd == ["run"]
 
-    def test_source_short(self) -> None:
-        opts, cmd = cli._parse_options(["-s", "run"])
+    def test_export_short(self) -> None:
+        opts, cmd = cli._parse_options(["-e", "run"])
         assert opts["source_mode"] is True
         assert cmd == ["run"]
 
@@ -70,22 +72,27 @@ class TestParseOptions:
         assert opts["password"] == "--"
         assert cmd == ["run"]
 
-    def test_plaintext_flag(self) -> None:
-        opts, cmd = cli._parse_options(["--plaintext", "run"])
+    def test_unencrypted_flag(self) -> None:
+        opts, cmd = cli._parse_options(["--unencrypted", "run"])
+        assert opts["plaintext_mode"] is True
+        assert cmd == ["run"]
+
+    def test_unencrypted_short(self) -> None:
+        opts, cmd = cli._parse_options(["-u", "run"])
         assert opts["plaintext_mode"] is True
         assert cmd == ["run"]
 
     def test_all_options(self) -> None:
         opts, cmd = cli._parse_options(
             [
-                "--file",
+                "--secrets-file",
                 "secrets.env",
-                "--app",
+                "--key",
                 "myapp",
-                "--source",
+                "--export",
                 "--password",
                 "p4ss",
-                "--plaintext",
+                "--unencrypted",
                 "command",
                 "--arg",
                 "value",
@@ -103,20 +110,20 @@ class TestParseOptions:
         assert cmd == ["cmd", "--file", "@SECRETS@"]
 
     def test_external_args_with_flags(self) -> None:
-        opts, cmd = cli._parse_options(["-s", "cmd", "arg1", "--flag", "val"])
+        opts, cmd = cli._parse_options(["-e", "cmd", "arg1", "--flag", "val"])
         assert opts["source_mode"] is True
         assert cmd == ["cmd", "arg1", "--flag", "val"]
 
-    def test_file_missing_value(self) -> None:
+    def test_secrets_file_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_options(["--file"])
+            cli._parse_options(["--secrets-file"])
 
-    def test_app_missing_value(self) -> None:
+    def test_key_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_options(["--app"])
+            cli._parse_options(["--key"])
 
     def test_no_comand_returns_empty(self) -> None:
-        opts, cmd = cli._parse_options(["--source"])
+        opts, cmd = cli._parse_options(["--export"])
         assert cmd == []
 
 
@@ -160,14 +167,14 @@ class TestMain:
         dispatch = mocker.patch("kleys.modes.dispatch")
         cli.main(
             [
-                "--file",
+                "--secrets-file",
                 "s.env",
-                "--app",
+                "--key",
                 "myapp",
-                "--source",
+                "--export",
                 "--password",
                 "p@ss",
-                "--plaintext",
+                "--unencrypted",
                 "cmd",
                 "--ext",
                 "val",
@@ -189,12 +196,12 @@ class TestParseShowOptions:
         opts = cli._parse_show_options([])
         assert opts == {"app_name": None, "password": None}
 
-    def test_app_option(self) -> None:
-        opts = cli._parse_show_options(["--app", "myapp"])
+    def test_key_option(self) -> None:
+        opts = cli._parse_show_options(["--key", "myapp"])
         assert opts["app_name"] == "myapp"
 
-    def test_app_short(self) -> None:
-        opts = cli._parse_show_options(["-a", "myapp"])
+    def test_key_short(self) -> None:
+        opts = cli._parse_show_options(["-k", "myapp"])
         assert opts["app_name"] == "myapp"
 
     def test_password_option(self) -> None:
@@ -213,9 +220,9 @@ class TestParseShowOptions:
         with pytest.raises(SystemExit):
             cli._parse_show_options(["--unknown"])
 
-    def test_app_missing_value(self) -> None:
+    def test_key_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["--app"])
+            cli._parse_show_options(["--key"])
 
     def test_password_missing_value(self) -> None:
         with pytest.raises(SystemExit):
@@ -229,12 +236,12 @@ class TestParseClearOptions:
         opts = cli._parse_clear_options([])
         assert opts == {"app_name": None, "force": False}
 
-    def test_app_option(self) -> None:
-        opts = cli._parse_clear_options(["--app", "myapp"])
+    def test_key_option(self) -> None:
+        opts = cli._parse_clear_options(["--key", "myapp"])
         assert opts["app_name"] == "myapp"
 
-    def test_app_short(self) -> None:
-        opts = cli._parse_clear_options(["-a", "myapp"])
+    def test_key_short(self) -> None:
+        opts = cli._parse_clear_options(["-k", "myapp"])
         assert opts["app_name"] == "myapp"
 
     def test_force_flag(self) -> None:
@@ -253,9 +260,9 @@ class TestParseClearOptions:
         with pytest.raises(SystemExit):
             cli._parse_clear_options(["--unknown"])
 
-    def test_app_missing_value(self) -> None:
+    def test_key_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_clear_options(["--app"])
+            cli._parse_clear_options(["--key"])
 
 
 class TestHandleShow:
@@ -273,7 +280,7 @@ class TestHandleShow:
         )
         mock_info = mocker.patch("kleys.cli.info")
 
-        cli._handle_show(["--app", "myapp"])
+        cli._handle_show(["--key", "myapp"])
 
         assert mock_info.call_count == 2
         mock_info.assert_any_call("Secrets for 'myapp':")
@@ -287,7 +294,7 @@ class TestHandleShow:
         mock_error = mocker.patch("kleys.cli.error")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--app", "myapp"])
+            cli._handle_show(["--key", "myapp"])
 
         mock_error.assert_called_once()
         assert "password" in mock_error.call_args[0][0].lower()
@@ -303,7 +310,7 @@ class TestHandleShow:
         mock_error = mocker.patch("kleys.cli.error")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--app", "myapp"])
+            cli._handle_show(["--key", "myapp"])
 
         mock_error.assert_called_once()
         assert "decrypt" in mock_error.call_args[0][0].lower()
@@ -315,7 +322,7 @@ class TestHandleShow:
         )
         mock_info = mocker.patch("kleys.cli.info")
 
-        cli._handle_show(["--app", "myapp"])
+        cli._handle_show(["--key", "myapp"])
 
         assert mock_info.call_count == 2
         mock_info.assert_any_call("Secrets for 'myapp' (plaintext):")
@@ -326,7 +333,7 @@ class TestHandleShow:
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--app", "myapp"])
+            cli._handle_show(["--key", "myapp"])
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
@@ -341,7 +348,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", return_value=True)
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp", "--force"])
+        cli._handle_clear(["--key", "myapp", "--force"])
 
         assert mock_success.call_count == 2
         mock_success.assert_any_call("Deleted encrypted secrets for 'myapp'")
@@ -351,7 +358,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", side_effect=[True, False])
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp", "--force"])
+        cli._handle_clear(["--key", "myapp", "--force"])
 
         mock_success.assert_called_once_with(
             "Deleted encrypted secrets for 'myapp'"
@@ -361,7 +368,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", side_effect=[False, True])
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp", "--force"])
+        cli._handle_clear(["--key", "myapp", "--force"])
 
         mock_success.assert_called_once_with(
             "Deleted plaintext secrets for 'myapp'"
@@ -372,7 +379,7 @@ class TestHandleClear:
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_clear(["--app", "myapp", "--force"])
+            cli._handle_clear(["--key", "myapp", "--force"])
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
@@ -383,7 +390,7 @@ class TestHandleClear:
         mocker.patch("kleys.keyring_.delete", return_value=True)
         mock_success = mocker.patch("kleys.cli.success")
 
-        cli._handle_clear(["--app", "myapp"])
+        cli._handle_clear(["--key", "myapp"])
 
         assert mock_success.call_count == 2
 
@@ -393,7 +400,7 @@ class TestHandleClear:
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_clear(["--app", "myapp"])
+            cli._handle_clear(["--key", "myapp"])
 
         mock_warn.assert_called_once_with("Clear cancelled.")
 
@@ -405,16 +412,18 @@ class TestHandleClear:
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_clear(["--app", "myapp"])
+            cli._handle_clear(["--key", "myapp"])
 
         mock_warn.assert_called_once_with("Clear cancelled.")
 
-    def test_non_interactive_requires_force(self, mocker: MockerFixture) -> None:
+    def test_non_interactive_requires_force(
+        self, mocker: MockerFixture
+    ) -> None:
         mocker.patch("sys.stdin.isatty", return_value=False)
         mock_error = mocker.patch("kleys.cli.error")
 
         with pytest.raises(SystemExit):
-            cli._handle_clear(["--app", "myapp"])
+            cli._handle_clear(["--key", "myapp"])
 
         mock_error.assert_called_once()
         assert "force" in mock_error.call_args[0][0].lower()
@@ -501,6 +510,39 @@ class TestMainRouting:
         cli.main(["clear"])
 
         mock_clear.assert_called_once_with([])
+        mock_run.assert_not_called()
+        mock_show.assert_not_called()
+
+    def test_list_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["list"])
+
+        mock_show.assert_called_once_with([])
+        mock_run.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_delete_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["delete", "--key", "myapp", "--force"])
+
+        mock_clear.assert_called_once_with(["--key", "myapp", "--force"])
+        mock_run.assert_not_called()
+        mock_show.assert_not_called()
+
+    def test_rm_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["rm", "--key", "myapp", "--force"])
+
+        mock_clear.assert_called_once_with(["--key", "myapp", "--force"])
         mock_run.assert_not_called()
         mock_show.assert_not_called()
 

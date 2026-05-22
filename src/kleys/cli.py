@@ -13,9 +13,9 @@ Usage: kleys [OPTIONS] COMMAND [ARGS...]
   Execute commands with secrets loaded from your system keyring.
 
 Commands:
-  run     Execute a command with secrets from the keyring
-  show    Display all stored secrets for an app
-  clear   Delete all stored secrets for an app
+  run                   Execute a command with secrets from the keyring
+  show, list            Display all stored secrets for a key
+  clear, delete, rm     Delete all stored secrets for a key
 
 Use 'kleys run --help' for run options.
 Use 'kleys show --help' for show options.
@@ -30,6 +30,7 @@ kleys {version}
 def _top_help() -> str:
     return f"kleys {__version__}\n\n{_TOP_HELP}"
 
+
 _RUN_HELP = """\
 Usage: kleys run [OPTIONS] COMMAND [ARGS...]
 
@@ -41,34 +42,62 @@ Usage: kleys run [OPTIONS] COMMAND [ARGS...]
   environment variables, or file descriptor.
 
 Options:
-  --file FILE, -f FILE    Secrets file path (default: .env)
-  --app APP, -a APP       Keyring app identifier (default: current folder name)
-  --source, -s            Source and export .env vars into the environment
-  --password PASSWORD     Encrypt secrets with a password (AES-256-CBC).
-                          If PASSWORD is omitted, resolves from
-                          KLEYS_PASSWORD env var or prompts.
-  --plaintext             Disable encryption, store/retrieve secrets as
-                          plaintext (default: encryption is enabled).
-  --help, -h              Show this help message
+  --secrets-file FILE, -f FILE
+                        Path used to expose secrets to the subprocess in
+                        file mode (default mode). A temp file is created
+                        at this path with the secrets and SECRETS_FILE
+                        env var points to it. If FILE already exists,
+                        kleys offers to import it into the keyring
+                        instead (default: .env)
+  --key KEY, -k KEY     Keyring entry identifier
+                        (default: current folder name)
+  --export, -e          Export secrets as environment variables directly
+                        to the subprocess (overrides file mode, no temp
+                        file created). The secrets content must be in
+                        valid KEY=VALUE format per line.
+  --password PASSWORD   Encrypt secrets with a password (Fernet/AES-128-CBC).
+                        If PASSWORD is omitted, resolves from
+                        KLEYS_PASSWORD env var or prompts.
+  --unencrypted, -u     Disable encryption, store/retrieve secrets as
+                        plaintext (default: encryption is enabled).
+  --help, -h            Show this help message
+
+FD mode (no disk I/O):
+  Use @SECRETS@ in any COMMAND argument to have kleys replace it with
+  a file descriptor pointing to the secrets content. The secrets are
+  written to an in-memory pipe — never touches disk. Not supported on
+  Windows (use --export or --secrets-file on Windows).
 
 Examples:
+  # Default file mode — secrets written to a temp .env, SECRETS_FILE set
   kleys run uv run pywrangler dev
-  kleys run --source ansible-playbook site.yml
+
+  # Export mode — secrets injected as environment variables, no file created
+  kleys run --export ansible-playbook site.yml
+
+  # FD mode — @SECRETS@ replaced by in-memory file descriptor, zero disk I/O
   kleys run act --secret-file @SECRETS@
-  kleys run --file .secrets act --secret-file .secrets
-  kleys run --app myproject-prod npm start
+
+  # Custom secrets-file name instead of default .env
+  kleys run --secrets-file .secrets act --secret-file .secrets
+
+  # Different keyring entry for different environments (dev, staging, prod)
+  kleys run --key myproject-prod npm start
 """
 
 _SHOW_HELP = """\
 Usage: kleys show [OPTIONS]
 
-  Display all stored secrets for an app.
+  Display all stored secrets for a key.
 
-  Loads secrets from the system keyring for the given app and prints
+  Loads secrets from the system keyring for the given key and prints
   them to stdout. Tries encrypted entry first, falls back to plaintext.
 
+Aliases: list
+
 Options:
-  --app APP, -a APP       Keyring app identifier (default: current folder name)
+  --key KEY, -k KEY       Keyring entry identifier
+                          (default: current folder name)
   --password PASSWORD     Decryption password (required if encrypted)
   --help, -h              Show this help message
 """
@@ -76,12 +105,15 @@ Options:
 _CLEAR_HELP = """\
 Usage: kleys clear [OPTIONS]
 
-  Delete all stored secrets for an app.
+  Delete all stored secrets for a key.
 
   Removes both encrypted and plaintext entries from the system keyring.
 
+Aliases: delete, rm
+
 Options:
-  --app APP, -a APP       Keyring app identifier (default: current folder name)
+  --key KEY, -k KEY       Keyring entry identifier
+                          (default: current folder name)
   --force                 Skip confirmation prompt
   --help, -h              Show this help message
 """
@@ -101,19 +133,19 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
         if a in ("--help", "-h"):
             sys.stdout.write(_RUN_HELP)
             sys.exit(0)
-        elif a in ("--file", "-f"):
+        elif a in ("--secrets-file", "-f"):
             if i + 1 >= len(args):
-                error("error: --file requires a value")
+                error("error: --secrets-file requires a value")
                 sys.exit(1)
             opts["file"] = args[i + 1]
             i += 2
-        elif a in ("--app", "-a"):
+        elif a in ("--key", "-k"):
             if i + 1 >= len(args):
-                error("error: --app requires a value")
+                error("error: --key requires a value")
                 sys.exit(1)
             opts["app_name"] = args[i + 1]
             i += 2
-        elif a in ("--source", "-s"):
+        elif a in ("--export", "-e"):
             opts["source_mode"] = True
             i += 1
         elif a == "--password":
@@ -126,7 +158,7 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
             )
             opts["password"] = args[i + 1]
             i += 2
-        elif a == "--plaintext":
+        elif a in ("--unencrypted", "-u"):
             opts["plaintext_mode"] = True
             i += 1
         else:
@@ -145,9 +177,9 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
         if a in ("--help", "-h"):
             sys.stdout.write(_SHOW_HELP)
             sys.exit(0)
-        elif a in ("--app", "-a"):
+        elif a in ("--key", "-k"):
             if i + 1 >= len(args):
-                error("error: --app requires a value")
+                error("error: --key requires a value")
                 sys.exit(1)
             opts["app_name"] = args[i + 1]
             i += 2
@@ -178,9 +210,9 @@ def _parse_clear_options(args: list[str]) -> dict[str, Any]:
         if a in ("--help", "-h"):
             sys.stdout.write(_CLEAR_HELP)
             sys.exit(0)
-        elif a in ("--app", "-a"):
+        elif a in ("--key", "-k"):
             if i + 1 >= len(args):
-                error("error: --app requires a value")
+                error("error: --key requires a value")
                 sys.exit(1)
             opts["app_name"] = args[i + 1]
             i += 2
@@ -229,7 +261,7 @@ def _handle_show(args: list[str]) -> None:
         info(plain_content)
         return
 
-    warn(f"No secrets found for app='{app_name}' in keyring.")
+    warn(f"No secrets found for key='{app_name}' in keyring.")
     sys.exit(1)
 
 
@@ -247,9 +279,11 @@ def _handle_clear(args: list[str]) -> None:
         import typer
 
         try:
-            confirmed = typer.confirm(
-                f"Danger: This will delete all secrets for '{app_name}'. Continue?"
+            msg = (
+                f"Danger: This will delete all secrets for"
+                f" '{app_name}'. Continue?"
             )
+            confirmed = typer.confirm(msg)
         except typer.Abort:
             confirmed = False
         if not confirmed:
@@ -265,7 +299,7 @@ def _handle_clear(args: list[str]) -> None:
         deleted_any = True
 
     if not deleted_any:
-        warn(f"No secrets found for app='{app_name}' in keyring.")
+        warn(f"No secrets found for key='{app_name}' in keyring.")
         sys.exit(1)
 
 
@@ -289,9 +323,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if subcommand == "run":
         _handle_run(remaining)
-    elif subcommand == "show":
+    elif subcommand in ("show", "list"):
         _handle_show(remaining)
-    elif subcommand == "clear":
+    elif subcommand in ("clear", "delete", "rm"):
         _handle_clear(remaining)
     else:
         _handle_run(args)
