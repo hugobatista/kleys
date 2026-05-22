@@ -5,7 +5,7 @@ The image ships with **two keyring backends**: `keyrings.alt` (file-backed, stan
 | Workflow | Run command | Persistence |
 |----------|-------------|-------------|
 | **Standalone** — file-backed keyring inside the container | `-v kleys-data:/app/data` | Named volume, auto-created on first run |
-| **Host keyring** — uses your machine's GNOME Keyring / KWallet | `-v /run/user/$(id -u)/bus:/run/user/1000/bus -e DBUS_SESSION_BUS_ADDRESS=...` | Host keyring |
+| **Host keyring** — uses your machine's GNOME Keyring / KWallet | `-v /run/user/$(id -u)/bus:/run/user/$(id -u)/bus -e DBUS_SESSION_BUS_ADDRESS=...` | Host keyring |
 
 Build:
 
@@ -45,4 +45,12 @@ No volume needed — reads and writes your host's GNOME Keyring or KWallet direc
 ```bash
 docker run --rm kleys show --help
 docker run --rm kleys clear --key test
+```
+
+## File descriptor mode with Docker
+
+Use `@SECRETS@` with `--env-file` to pass secrets from keyring directly to a container — zero disk I/O:
+
+```bash
+kleys docker run --env-file @SECRETS@ myimage
 ```
