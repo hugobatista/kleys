@@ -134,7 +134,7 @@ kleys has three modes for passing secrets to your command:
 | Mode | How to enable | How secrets arrive | Writes to disk? |
 |------|--------------|-------------------|-----------------|
 | **File** (default) | No flag | Temp `.env` file, `SECRETS_FILE` points to it | Temp file, auto-deleted |
-| **File Descriptor** | `@SECRETS@` token in args | In-memory FD as `/dev/fd/9`, `SECRETS_FILE=/dev/fd/9` | Never |
+| **File Descriptor** | `@SECRETS@` token in args | In-memory FD as `/dev/fd/9`, `SECRETS_FILE=/dev/fd/9` | Never (Unix only) |
 | **Export** | `--export` / `-e` flag | Exported as environment variables in the subprocess environment | Never |
 
 Pick the mode that matches how your tool reads secrets. The examples below show each mode in action.
@@ -214,15 +214,21 @@ kleys docker-compose up
 
 Great for docker-compose files that source `.env` for configuration.
 
-### Example 7: Just viewing the secrets file path
+### Example 7: Inspecting the secrets file path
 
 ```bash
-kleys env | grep SECRETS_FILE
+# File mode: SECRETS_FILE points to the temp file
+kleys bash -c 'echo "Secrets file: $SECRETS_FILE"'
+
+# FD mode: SECRETS_FILE points to the file descriptor
+kleys bash -c 'echo "Secrets FD: $SECRETS_FILE"' --secret-file @SECRETS@
 ```
 
-The `SECRETS_FILE` environment variable contains the absolute path to the secrets file created by kleys.
+The `SECRETS_FILE` environment variable is set in both file and FD modes.
 
 ### Example 8: File descriptor mode (no disk I/O)
+
+> **Note:** FD mode (`@SECRETS@`) is Unix/macOS only — not supported on Windows. Use `--export` or `--secrets-file` on Windows instead.
 
 ```bash
 kleys act --secret-file @SECRETS@
@@ -298,6 +304,8 @@ kleys bash -c 'echo "Secrets are at: $SECRETS_FILE"' --secret-file @SECRETS@
 In **export mode** (`--export`), `SECRETS_FILE` is not set — the secrets are already in the environment.
 
 ### File Descriptor Mode (No Disk I/O)
+
+> **Note:** FD mode is Unix/macOS only — not supported on Windows. Use `--export` or `--secrets-file` instead.
 
 For maximum security, use the `@SECRETS@` token in your command to pass secrets via file descriptor without writing to disk:
 
@@ -424,7 +432,7 @@ On first use (when secrets aren't in keyring):
 
 1. kleys prompts: "Paste your secrets content..."
 2. Paste your `.env` content (KEY=VALUE format)
-3. Press `Ctrl-D` to finish (or `Ctrl-C` to cancel)
+3. Press `Ctrl-D` (Unix) / `Ctrl-Z + Enter` (Windows) to finish (or `Ctrl-C` to cancel)
 4. Secrets are encrypted and stored in system keyring
 5. Future runs load automatically
 
@@ -494,10 +502,12 @@ kleys --unencrypted --export your-command
 
 ### Command fails but secrets file remains
 
-If your command crashes before cleanup runs, manually remove:
+If your command crashes before cleanup runs, manually remove the temp file:
 
 ```bash
-rm .env  # or your custom secrets file name
+rm .env       # on Unix/macOS
+del .env      # on Windows (cmd.exe)
+Remove-Item .env  # on Windows (PowerShell)
 ```
 
 ### Want to delete stored secrets

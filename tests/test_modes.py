@@ -178,9 +178,9 @@ class TestLoadSecrets:
         self, mocker: MockerFixture
     ) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="plain=text\n")
+        mocker.patch("builtins.input", side_effect=["plain=text", EOFError])
         result = modes._load_secrets("myapp", None, True)
-        assert result == "plain=text\n"
+        assert result == "plain=text"
 
     def test_phase2_plaintext_found(self, mocker: MockerFixture) -> None:
         mocker.patch(
@@ -194,21 +194,29 @@ class TestLoadSecrets:
 
     def test_phase3_user_input(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="USER=provided\n")
+        mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         result = modes._load_secrets("myapp", None, False)
-        assert result == "USER=provided\n"
+        assert result == "USER=provided"
+
+    def test_phase3_empty_line_terminates(self, mocker: MockerFixture) -> None:
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("builtins.input", side_effect=["KEY=val", ""])
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        result = modes._load_secrets("myapp", None, False)
+        assert result == "KEY=val"
 
     def test_phase3_empty_input(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="")
+        mocker.patch("builtins.input", side_effect=EOFError)
         with pytest.raises(SystemExit):
             modes._load_secrets("myapp", None, False)
 
     def test_phase3_no_password_error(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="KEY=val\n")
+        mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value=None)
         with pytest.raises(SystemExit):
             modes._load_secrets("myapp", None, False)
@@ -217,7 +225,7 @@ class TestLoadSecrets:
         self, mocker: MockerFixture
     ) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="USER=provided\n")
+        mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch(
             "kleys.modes.kr.store",
             side_effect=KeyringUnavailableError,
@@ -229,7 +237,7 @@ class TestLoadSecrets:
         self, mocker: MockerFixture
     ) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="USER=provided\n")
+        mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         mocker.patch(
@@ -347,7 +355,7 @@ class TestExecFD:
 class TestDispatch:
     def test_file_mode(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="KEY=val\n")
+        mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         mocker.patch("tempfile.mkstemp", return_value=(3, "/tmp/test.env"))
@@ -372,7 +380,7 @@ class TestDispatch:
 
     def test_source_mode(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="DB=prod\n")
+        mocker.patch("builtins.input", side_effect=["DB=prod", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         mocker.patch("kleys.utils.setup_cleanup")
@@ -399,7 +407,8 @@ class TestDispatch:
         mocker.patch("os.pipe", return_value=(10, 11))
         mocker.patch("os.write", side_effect=lambda fd, data: len(data))
         mocker.patch("os.close")
-        mocker.patch("sys.stdin.read", return_value="K=V\n")
+        mocker.patch("builtins.input", side_effect=["K=V", EOFError])
+        mocker.patch("sys.platform", "linux")
         mocker.patch("kleys.utils.setup_cleanup")
         import subprocess
 
@@ -421,7 +430,7 @@ class TestDispatch:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
-        mocker.patch("sys.stdin.read", return_value="K=V\n")
+        mocker.patch("builtins.input", side_effect=["K=V", EOFError])
         mocker.patch("sys.platform", "win32")
         mocker.patch("kleys.utils.setup_cleanup")
         with pytest.raises(SystemExit) as exc:
@@ -445,7 +454,7 @@ class TestDispatch:
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
         mocker.patch("kleys.modes.kr.store")
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("sys.stdin.read", return_value="KEY=val\n")
+        mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
         mocker.patch("tempfile.mkstemp", return_value=(3, "/tmp/test.env"))
         mocker.patch("builtins.open", mocker.mock_open())
         mocker.patch("os.chmod")

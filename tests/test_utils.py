@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 
@@ -14,10 +15,28 @@ class TestCreateTempEnv:
         with open(path) as f:
             assert f.read() == "KEY=value\n"
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="chmod semantics differ on Windows",
+    )
     def test_sets_600_permissions(self) -> None:
         path = utils.create_temp_env("SECRET=x\n")
         mode = os.stat(path).st_mode & 0o777
-        assert mode == 0o600 or mode == 0o600
+        assert mode == 0o600
+
+    def test_skips_chmod_on_windows(self, mocker) -> None:
+        mocker.patch("sys.platform", "win32")
+        chmod = mocker.patch("os.chmod")
+        path = utils.create_temp_env("SECRET=x\n")
+        assert os.path.exists(path)
+        chmod.assert_not_called()
+
+    def test_calls_chmod_on_unix(self, mocker) -> None:
+        mocker.patch("sys.platform", "linux")
+        chmod = mocker.patch("os.chmod")
+        mocker.patch("os.close")
+        path = utils.create_temp_env("SECRET=x\n")
+        chmod.assert_called_once_with(path, 0o600)
 
     def test_creates_tracked_path(self) -> None:
         utils.reset_cleanup_state()
@@ -91,13 +110,23 @@ class TestSetupCleanup:
         signal_signal = mocker.patch("signal.signal")
         utils.setup_cleanup()
         atexit_register.assert_called_once_with(utils._cleanup)
-        signal_signal.assert_any_call(15, utils._signal_handler)
+        if sys.platform == "win32":
+            signal_signal.assert_called_once_with(2, utils._signal_handler)
+        else:
+            signal_signal.assert_any_call(15, utils._signal_handler)
 
     def test_registers_signal_sigint(self, mocker) -> None:
         mocker.patch("atexit.register")
         signal_signal = mocker.patch("signal.signal")
         utils.setup_cleanup()
         signal_signal.assert_any_call(2, utils._signal_handler)
+
+    def test_registers_signal_sigterm_on_unix(self, mocker) -> None:
+        mocker.patch("atexit.register")
+        mocker.patch("sys.platform", "linux")
+        signal_signal = mocker.patch("signal.signal")
+        utils.setup_cleanup()
+        signal_signal.assert_any_call(15, utils._signal_handler)
 
 
 class TestResetCleanupState:

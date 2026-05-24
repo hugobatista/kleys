@@ -1,3 +1,5 @@
+import sys
+
 import keyring as _keyring
 import keyring.errors
 
@@ -8,15 +10,20 @@ class KeyringUnavailableError(RuntimeError):
     pass
 
 
+def keyring_install_hint() -> str:
+    hint = "  Install a keyring backend (try: pip install keyrings.alt)"
+    if sys.platform == "linux":
+        hint += ",\n  or on Debian/Ubuntu: apt install python3-secretstorage"
+    return hint
+
+
 def store(service: str, secret: str) -> None:
     try:
         _keyring.set_password(service, _SERVICE_USER, secret)
     except keyring.errors.KeyringError as exc:
         raise KeyringUnavailableError(
             "No keyring backend is available. Kleys requires a system"
-            " keyring to operate.\n"
-            "  Install a keyring backend (try: pip install keyrings.alt),\n"
-            "  or on Linux: apt install python3-secretstorage"
+            f" keyring to operate.\n{keyring_install_hint()}"
         ) from exc
 
 

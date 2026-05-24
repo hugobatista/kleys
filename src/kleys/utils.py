@@ -26,7 +26,8 @@ def _signal_handler(signum: int, frame: object) -> None:
 def setup_cleanup() -> None:
     atexit.register(_cleanup)
     signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
+    if sys.platform != "win32":
+        signal.signal(signal.SIGTERM, _signal_handler)
 
 
 def create_temp_env(content: str) -> str:
@@ -35,7 +36,8 @@ def create_temp_env(content: str) -> str:
     os.close(fd)
     with open(path, "w") as f:
         f.write(content)
-    os.chmod(path, 0o600)
+    if sys.platform != "win32":
+        os.chmod(path, 0o600)
     _FILE_PATH = path
     return path
 

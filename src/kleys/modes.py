@@ -8,7 +8,7 @@ import typer
 
 from kleys import console, crypto
 from kleys import keyring_ as kr
-from kleys.keyring_ import KeyringUnavailableError
+from kleys.keyring_ import KeyringUnavailableError, keyring_install_hint
 from kleys.password import (
     resolve_decrypt_password,
     resolve_encrypt_password,
@@ -57,9 +57,7 @@ def _offer_store_file(
         except KeyringUnavailableError:
             console.error(
                 "Error: No keyring backend is available. Kleys requires a"
-                " system keyring to operate.\n"
-                "  Install a keyring backend (try: pip install keyrings.alt),\n"
-                "  or on Linux: apt install python3-secretstorage"
+                f" system keyring to operate.\n{keyring_install_hint()}"
             )
             sys.exit(1)
         console.success(
@@ -80,9 +78,7 @@ def _offer_store_file(
         except KeyringUnavailableError:
             console.error(
                 "Error: No keyring backend is available. Kleys requires a"
-                " system keyring to operate.\n"
-                "  Install a keyring backend (try: pip install keyrings.alt),\n"
-                "  or on Linux: apt install python3-secretstorage"
+                f" system keyring to operate.\n{keyring_install_hint()}"
             )
             sys.exit(1)
         console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
@@ -123,9 +119,22 @@ def _load_secrets(
             )
         return plain_content
     console.warn(f"\u26a0 No secrets found for key='{app_name}' in keyring.")
-    console.info("Paste secrets content (KEY=VALUE), then press Ctrl-D:")
+    console.info(
+        "Paste secrets content (KEY=VALUE), then press"
+        " Ctrl-D (Unix) / Ctrl-Z+Enter (Windows),"
+    )
+    console.info("  or press Enter on an empty line to finish:")
     console.info("(Press Ctrl-C to cancel)")
-    secrets_input = sys.stdin.read()
+    lines: list[str] = []
+    try:
+        while True:
+            line = input()
+            if not line:
+                break
+            lines.append(line)
+    except EOFError:
+        pass
+    secrets_input = "\n".join(lines)
     if not secrets_input:
         console.error("Error: No secrets provided. Aborting.")
         sys.exit(1)
@@ -135,9 +144,7 @@ def _load_secrets(
         except KeyringUnavailableError:
             console.error(
                 "Error: No keyring backend is available. Kleys requires a"
-                " system keyring to operate.\n"
-                "  Install a keyring backend (try: pip install keyrings.alt),\n"
-                "  or on Linux: apt install python3-secretstorage"
+                f" system keyring to operate.\n{keyring_install_hint()}"
             )
             sys.exit(1)
         console.success(
@@ -158,9 +165,7 @@ def _load_secrets(
         except KeyringUnavailableError:
             console.error(
                 "Error: No keyring backend is available. Kleys requires a"
-                " system keyring to operate.\n"
-                "  Install a keyring backend (try: pip install keyrings.alt),\n"
-                "  or on Linux: apt install python3-secretstorage"
+                f" system keyring to operate.\n{keyring_install_hint()}"
             )
             sys.exit(1)
         console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
@@ -180,10 +185,15 @@ def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
     try:
         result = subprocess.run(command, env=env)
     except FileNotFoundError:
+        shell_hint = (
+            'cmd /c "<command>"'
+            if sys.platform == "win32"
+            else "sh -c '<command>'"
+        )
         console.error(
             f"Error: Command not found: {command[0]!r}.\n"
-            "  Use --export to export variables into the environment,\n"
-            "  wrap in sh -c '<command>' for shell built-ins,\n"
+            f"  Use --export to export variables into the environment,\n"
+            f"  wrap in {shell_hint} for shell built-ins,\n"
             "  or specify a valid executable."
         )
         return 127
@@ -197,10 +207,15 @@ def _exec_source(command: list[str], secrets_content: str) -> int:
     try:
         result = subprocess.run(command, env=env)
     except FileNotFoundError:
+        shell_hint = (
+            'cmd /c "<command>"'
+            if sys.platform == "win32"
+            else "sh -c '<command>'"
+        )
         console.error(
             f"Error: Command not found: {command[0]!r}.\n"
             "  Make sure the command is installed and on PATH,\n"
-            "  or wrap in sh -c '<command>' for shell built-ins."
+            f"  or wrap in {shell_hint} for shell built-ins."
         )
         return 127
     return result.returncode

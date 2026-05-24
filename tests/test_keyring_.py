@@ -7,6 +7,20 @@ from pytest_mock import MockerFixture
 from kleys import keyring_ as kr
 
 
+class TestKeyringInstallHint:
+    def test_non_linux_hint(self) -> None:
+        hint = kr.keyring_install_hint()
+        assert "pip install keyrings.alt" in hint
+        assert "apt install" not in hint
+
+    def test_linux_hint_includes_apt(self, mocker: MockerFixture) -> None:
+        mocker.patch.object(kr, "sys", spec=["platform"])
+        kr.sys.platform = "linux"
+        hint = kr.keyring_install_hint()
+        assert "apt install python3-secretstorage" in hint
+        assert "Debian/Ubuntu" in hint
+
+
 class TestStore:
     def test_stores_with_fixed_user(self, mocker: MockerFixture) -> None:
         kr.store("myapp", "secret-content")

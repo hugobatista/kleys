@@ -153,7 +153,8 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
                 error("error: --password requires a value")
                 sys.exit(1)
             warn(
-                "Warning: --password is visible in process listings (ps aux)."
+                "Warning: --password is visible in process listings"
+                " (e.g., ps aux on Unix/macOS, tasklist on Windows)."
                 " Use KLEYS_PASSWORD env var or interactive prompt instead."
             )
             opts["password"] = args[i + 1]
@@ -188,7 +189,8 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
                 error("error: --password requires a value")
                 sys.exit(1)
             warn(
-                "Warning: --password is visible in process listings (ps aux)."
+                "Warning: --password is visible in process listings"
+                " (e.g., ps aux on Unix/macOS, tasklist on Windows)."
                 " Use KLEYS_PASSWORD env var or interactive prompt instead."
             )
             opts["password"] = args[i + 1]
