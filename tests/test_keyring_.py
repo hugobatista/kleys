@@ -8,7 +8,9 @@ from kleys import keyring_ as kr
 
 
 class TestKeyringInstallHint:
-    def test_non_linux_hint(self) -> None:
+    def test_non_linux_hint(self, mocker: MockerFixture) -> None:
+        mocker.patch.object(kr, "sys", spec=["platform"])
+        kr.sys.platform = "darwin"
         hint = kr.keyring_install_hint()
         assert "pip install keyrings.alt" in hint
         assert "apt install" not in hint
