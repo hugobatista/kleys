@@ -35,7 +35,7 @@ kleys python app.py
 
 ## Why You Need This
 
-**Three threats this eliminates at once. Security and usability — no trade-off.**
+**Four threats this eliminates at once. Security and usability — no trade-off.**
 
 **1. File-harvesting malware.** Supply-chain attacks and post-exploitation tools scan disk for `.env` files and exfiltrate them. With `--export` or `@SECRETS@`, the file never exists on disk — nothing to steal.
 
@@ -43,10 +43,12 @@ kleys python app.py
 
 **3. Process-table leaks.** The common pattern `export $(cat .env | xargs)` spawns `cat`, `xargs`, and `echo` subprocesses whose command-line arguments expose your secrets to any user running `ps aux`. `--export` passes secrets directly in the subprocess environment — no intermediate processes, no command-line arguments, no process-table leaks.
 
+**4. LLM data exposure.** AI coding agents with filesystem access can read `.env` files and act on credentials — even with safety instructions in place. And secrets included in LLM prompts may be retained in training data or exposed through breaches. No file on disk means nothing for agents to find and nothing to leak through a prompt.
+
 ```bash
 kleys --export ansible-playbook site.yml    # no file = no malware, no git risk
 kleys --export ./deploy.sh                   # no subprocess = no ps leaks
-kleys --export npm run dev                   # all three, every time
+kleys --export npm run dev                   # all four, every time
 ```
 
 ## Prerequisites
@@ -138,6 +140,8 @@ kleys has three modes for passing secrets to your command:
 | **Export** | `--export` / `-e` flag | Exported as environment variables in the subprocess environment | Never |
 
 Pick the mode that matches how your tool reads secrets. The examples below show each mode in action.
+
+For detailed data flow and how secrets traverse each mode, see [Architecture](docs/ARCHITECT.md).
 
 ## Examples
 
@@ -468,6 +472,8 @@ This is **not a vulnerability** in the keyring — it is by design. The keyring 
 - An enumerating attacker sees only **ciphertext** — meaningless without the decryption password
 - The decryption password is **never stored in the keyring** (resolved via interactive prompt, environment variable, or `--password` flag)
 - Even if an attacker dumps every keyring entry, your secrets remain confidential
+
+See [Security Architecture](docs/SECURITY.md) for a detailed analysis of the D-Bus attack surface and encryption protocol.
 
 **When `--unencrypted` is used**, secrets in the keyring are as exposed as `.env` files on disk — any process with D-Bus access can read them. Reserve `--unencrypted` for ephemeral or isolated environments (e.g., CI containers where D-Bus access is restricted).
 
