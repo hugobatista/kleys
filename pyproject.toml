@@ -15,7 +15,7 @@ dependencies = [
     "cryptography>=44.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-mock>=3",
@@ -38,7 +38,7 @@ build-backend = "hatchling.build"
 packages = ["src/kleys"]
 
 [tool.hatch.envs.default]
-features = ["dev"]
+dependency-groups = ["dev"]
 
 [tool.hatch.envs.default.scripts]
 lint = "ruff check . --fix"

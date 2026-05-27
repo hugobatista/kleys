@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-04-27T14:38:48.233845273Z"
 exclude-newer-span = "P30D"
 
 [[package]]
@@ -376,7 +376,7 @@ dependencies = [
     { name = "typer" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -389,14 +389,17 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=44.0" },
     { name = "keyring", specifier = ">=25.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-cov", specifier = ">=6" },
+    { name = "pytest-mock", specifier = ">=3" },
+    { name = "ruff", specifier = ">=0.11" },
+]
 
 [[package]]
 name = "librt"
