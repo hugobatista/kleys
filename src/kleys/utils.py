@@ -30,10 +30,11 @@ def setup_cleanup() -> None:
         signal.signal(signal.SIGTERM, _signal_handler)
 
 
-def create_temp_env(content: str) -> str:
+def create_temp_env(content: str, path: str | None = None) -> str:
     global _FILE_PATH
-    fd, path = tempfile.mkstemp(suffix=".env", prefix="kleys-")
-    os.close(fd)
+    if path is None:
+        fd, path = tempfile.mkstemp(suffix=".env", prefix="kleys-")
+        os.close(fd)
     with open(path, "w") as f:
         f.write(content)
     if sys.platform != "win32":

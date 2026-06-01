@@ -179,7 +179,7 @@ def _env(**extra: str) -> dict[str, str]:
 
 
 def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
-    path = create_temp_env(secrets_content)
+    path = create_temp_env(secrets_content, path=file)
     console.cmd(f"\u2192 Running: {' '.join(command)}")
     env = _env(SECRETS_FILE=path)
     try:

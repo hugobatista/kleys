@@ -249,40 +249,33 @@ class TestLoadSecrets:
 
 
 class TestExecFile:
-    def test_creates_temp_file_and_runs(self, mocker: MockerFixture) -> None:
-        fake_path = os.path.join(
-            os.path.dirname(__file__), "..", "tmp", "test.env"
-        )
-        mocker.patch("tempfile.mkstemp", return_value=(3, fake_path))
-        mock_file = mocker.mock_open()
-        mocker.patch("builtins.open", mock_file)
-        mocker.patch("os.close")
+    def test_writes_to_file_path_and_runs(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        secrets_path = tmp_path / ".env"
+        mocker.patch("kleys.utils._FILE_PATH", None)
         mocker.patch("os.chmod")
-        mocker.patch("os.path.exists", return_value=True)
-        mocker.patch("os.remove")
         import subprocess
 
-        result = modes._exec_file(["echo", "hi"], "CONTENT=val\n", fake_path)
+        content = "CONTENT=val\n"
+        result = modes._exec_file(["echo", "hi"], content, str(secrets_path))
         assert result == 0
+        assert secrets_path.read_text() == content
         subprocess.run.assert_called_once()
         env_arg = subprocess.run.call_args[1]["env"]
-        assert env_arg["SECRETS_FILE"] == fake_path
+        assert env_arg["SECRETS_FILE"] == str(secrets_path)
 
-    def test_file_not_found_error(self, mocker: MockerFixture) -> None:
-        fake_path = os.path.join(
-            os.path.dirname(__file__), "..", "tmp", "test.env"
-        )
-        mocker.patch("tempfile.mkstemp", return_value=(3, fake_path))
-        mock_file = mocker.mock_open()
-        mocker.patch("builtins.open", mock_file)
-        mocker.patch("os.close")
+    def test_file_not_found_error(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        secrets_path = tmp_path / ".env"
+        mocker.patch("kleys.utils._FILE_PATH", None)
         mocker.patch("os.chmod")
-        mocker.patch("os.path.exists", return_value=True)
-        mocker.patch("os.remove")
         import subprocess
 
         mocker.patch.object(subprocess, "run", side_effect=FileNotFoundError())
-        result = modes._exec_file(["nonexistent"], "CONTENT=val\n", fake_path)
+        content = "CONTENT=val\n"
+        result = modes._exec_file(["nonexistent"], content, str(secrets_path))
         assert result == 127
 
 
