@@ -258,6 +258,9 @@ def dispatch(
     password: str | None,
     plaintext_mode: bool,
 ) -> None:
+    if not command:
+        console.error("Error: No command specified.")
+        sys.exit(1)
     setup_cleanup()
     resolved_app = resolve_app_name(app_name)
     use_fd = any("@SECRETS@" in arg for arg in command)

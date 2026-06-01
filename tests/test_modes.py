@@ -353,6 +353,19 @@ class TestExecFD:
 
 
 class TestDispatch:
+    def test_empty_command_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch("kleys.utils.setup_cleanup")
+        with pytest.raises(SystemExit) as exc:
+            modes.dispatch(
+                command=[],
+                file=".env",
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
+        assert exc.value.code == 1
+
     def test_file_mode(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
         mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
