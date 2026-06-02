@@ -162,6 +162,9 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
         elif a in ("--unencrypted", "-u"):
             opts["plaintext_mode"] = True
             i += 1
+        elif a == "--":
+            i += 1
+            break
         else:
             break
     return opts, args[i:]

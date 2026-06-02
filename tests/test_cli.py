@@ -126,6 +126,20 @@ class TestParseOptions:
         opts, cmd = cli._parse_options(["--export"])
         assert cmd == []
 
+    def test_double_dash_separator(self) -> None:
+        opts, cmd = cli._parse_options(["--key", "myapp", "--", "cat", ".env"])
+        assert opts["app_name"] == "myapp"
+        assert cmd == ["cat", ".env"]
+
+    def test_double_dash_without_options(self) -> None:
+        opts, cmd = cli._parse_options(["--", "cmd", "--arg"])
+        assert cmd == ["cmd", "--arg"]
+
+    def test_double_dash_no_command(self) -> None:
+        opts, cmd = cli._parse_options(["--key", "x", "--"])
+        assert opts["app_name"] == "x"
+        assert cmd == []
+
 
 class TestMainBlock:
     def test_main_block(self, mocker: MockerFixture) -> None:

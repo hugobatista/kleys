@@ -1,6 +1,6 @@
 [project]
 name = "kleys"
-version = "0.1.1"
+version = "0.1.2"
 description = "Execute commands with secrets loaded encrypted from your system keyring"
 readme = "README.md"
 authors = [
