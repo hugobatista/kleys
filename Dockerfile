@@ -1,13 +1,16 @@
+ARG UV_VERSION=0.11.18
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-dist
+
 FROM python:3.12-slim AS builder
 
 WORKDIR /tmp
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=uv-dist /uv /uvx /usr/local/bin/
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src src/
 
-RUN uv export --no-dev --no-hashes --no-emit-project -o requirements.txt \
+RUN uv export --no-dev --no-emit-project -o requirements.txt \
  && uv build
 
 FROM python:3.12-slim
@@ -28,7 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /tmp/requirements.txt ./
 RUN pip install --no-cache --upgrade pip \
- && pip install --no-cache --upgrade -r ./requirements.txt keyrings.alt \
+ && pip install --no-cache --require-hashes -r ./requirements.txt \
+ && pip install --no-cache keyrings.alt \
  && addgroup --system app && adduser --system --ingroup app app
 
 COPY --from=builder /tmp/dist/*.whl /tmp/
