@@ -3,9 +3,9 @@
 ## Commands
 
 ```bash
-hatch run test      # pytest src tests --cov=src/kleys --cov-fail-under=100 -v
-hatch run typecheck # mypy src --strict --no-incremental
-hatch run validate  # lint → format-check → test → typecheck
+uv run hatch run test      # runs pytest (config in pyproject.toml)
+uv run hatch run typecheck # runs mypy (config in pyproject.toml)
+uv run hatch run validate  # lint → format-check → test → typecheck
 ```
 
 ## Entrypoint
@@ -25,4 +25,4 @@ CLI parsing is manual (not Typer decorators). Typer used only for `prompt`/`sech
 
 Must call `subprocess.run.reset_mock()` before each test that inspects it (shared mock). FD mode tests must mock `os.pipe` returning specific FDs like `(10, 11)`.
 
-Must call "hatch run validate" to run all tests, including type checks and linting, after implementing a new feature or fixing a bug. 
+Must call "uv run hatch run validate" to run all tests, including type checks and linting, after implementing a new feature or fixing a bug. 
