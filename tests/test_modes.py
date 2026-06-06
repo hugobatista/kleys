@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+import typer
 from pytest_mock import MockerFixture
 
 from kleys import modes
@@ -487,18 +488,27 @@ class TestDispatch:
         file = tmp_path / ".env"
         file.write_text("LOCAL=used\n")
         mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch("kleys.modes.kr.store")
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("builtins.input", side_effect=["KEY=pasted", ""])
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("os.chmod")
         mocker.patch("kleys.utils.setup_cleanup")
         import subprocess
 
         subprocess.run.reset_mock()
-        modes.dispatch(
-            command=["run", "me"],
-            file=str(file),
-            app_name="testapp",
-            source_mode=False,
-            password=None,
-            plaintext_mode=False,
-        )
+        with pytest.raises(SystemExit):
+            modes.dispatch(
+                command=["run", "me"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
         env_arg = subprocess.run.call_args[1]["env"]
         assert env_arg["SECRETS_FILE"] == str(file.absolute())
 
@@ -508,20 +518,26 @@ class TestDispatch:
         file = tmp_path / ".env"
         file.write_text("LOCAL=env_var\n")
         mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch("kleys.modes.kr.store")
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("builtins.input", side_effect=["KEY=pasted_value", ""])
         mocker.patch("kleys.utils.setup_cleanup")
         import subprocess
 
         subprocess.run.reset_mock()
-        modes.dispatch(
-            command=["tool"],
-            file=str(file),
-            app_name="testapp",
-            source_mode=True,
-            password=None,
-            plaintext_mode=False,
-        )
+        with pytest.raises(SystemExit):
+            modes.dispatch(
+                command=["tool"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=True,
+                password=None,
+                plaintext_mode=False,
+            )
         env_arg = subprocess.run.call_args[1]["env"]
-        assert env_arg["LOCAL"] == "env_var"
+        assert env_arg["KEY"] == "pasted_value"
 
     def test_local_file_decline_file_mode_not_found(
         self, mocker: MockerFixture, tmp_path: Path
@@ -529,6 +545,14 @@ class TestDispatch:
         file = tmp_path / ".env"
         file.write_text("LOCAL=used\n")
         mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch("kleys.modes.kr.store")
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("builtins.input", side_effect=["KEY=val", ""])
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("os.chmod")
         mocker.patch("kleys.utils.setup_cleanup")
         import subprocess
 
@@ -551,6 +575,11 @@ class TestDispatch:
         file = tmp_path / ".env"
         file.write_text("LOCAL=env_var\n")
         mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch("kleys.modes.kr.store")
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("builtins.input", side_effect=["KEY=val", ""])
         mocker.patch("kleys.utils.setup_cleanup")
         import subprocess
 
@@ -566,3 +595,109 @@ class TestDispatch:
                 plaintext_mode=False,
             )
         assert exc.value.code == 127
+
+    def test_local_file_decline_key_exists_file_mode(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("LOCAL=from_dotenv\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch(
+            "kleys.modes.kr.lookup",
+            side_effect=lambda s: (
+                "encrypted-blob" if s == "testapp-encrypted" else None
+            ),
+        )
+        mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
+        mocker.patch(
+            "kleys.modes.crypto.decrypt", return_value="KEY=from_keyring"
+        )
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("os.chmod")
+        mocker.patch("kleys.utils.setup_cleanup")
+        import subprocess
+
+        subprocess.run.reset_mock()
+        with pytest.raises(SystemExit):
+            modes.dispatch(
+                command=["run", "me"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
+        env_arg = subprocess.run.call_args[1]["env"]
+        assert env_arg["SECRETS_FILE"] == str(file.absolute())
+
+    def test_local_file_decline_key_exists_source_mode(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("LOCAL=from_dotenv\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch(
+            "kleys.modes.kr.lookup",
+            side_effect=lambda s: (
+                "encrypted-blob" if s == "testapp-encrypted" else None
+            ),
+        )
+        mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
+        mocker.patch(
+            "kleys.modes.crypto.decrypt", return_value="KEY=from_keyring"
+        )
+        mocker.patch("kleys.utils.setup_cleanup")
+        import subprocess
+
+        subprocess.run.reset_mock()
+        with pytest.raises(SystemExit):
+            modes.dispatch(
+                command=["tool"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=True,
+                password=None,
+                plaintext_mode=False,
+            )
+        env_arg = subprocess.run.call_args[1]["env"]
+        assert env_arg["KEY"] == "from_keyring"
+        assert "LOCAL" not in env_arg
+
+    def test_local_file_decline_overwrite_cancelled(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("SECRET=old\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", return_value=False)
+        mocker.patch("kleys.utils.setup_cleanup")
+        with pytest.raises(SystemExit) as exc:
+            modes.dispatch(
+                command=["tool"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
+        assert exc.value.code == 1
+
+    def test_local_file_decline_overwrite_abort(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("SECRET=old\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", side_effect=typer.Abort)
+        mocker.patch("kleys.utils.setup_cleanup")
+        with pytest.raises(SystemExit) as exc:
+            modes.dispatch(
+                command=["tool"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
+        assert exc.value.code == 1
