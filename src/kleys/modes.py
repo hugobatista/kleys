@@ -268,14 +268,29 @@ def dispatch(
         if _offer_store_file(file, resolved_app, password, plaintext_mode):
             os.remove(file)
         else:
-            if source_mode:
-                env = _env(**_parse_env(Path(file).read_text()))
-                console.cmd(f"\u2192 Running: {' '.join(command)}")
-                subprocess.run(command, env=env)
-            else:
-                env = _env(SECRETS_FILE=os.path.abspath(file))
-                console.cmd(f"\u2192 Running: {' '.join(command)}")
-                subprocess.run(command, env=env)
+            try:
+                if source_mode:
+                    env = _env(**_parse_env(Path(file).read_text()))
+                    console.cmd(f"\u2192 Running: {' '.join(command)}")
+                    subprocess.run(command, env=env)
+                else:
+                    env = _env(SECRETS_FILE=os.path.abspath(file))
+                    console.cmd(f"\u2192 Running: {' '.join(command)}")
+                    subprocess.run(command, env=env)
+            except FileNotFoundError:
+                shell_hint = (
+                    'cmd /c "<command>"'
+                    if sys.platform == "win32"
+                    else "sh -c '<command>'"
+                )
+                console.error(
+                    f"Error: Command not found: {command[0]!r}.\n"
+                    "  Use --export to export variables into the"
+                    f" environment,\n"
+                    f"  wrap in {shell_hint} for shell built-ins,\n"
+                    "  or specify a valid executable."
+                )
+                sys.exit(127)
             return
     secrets_content = _load_secrets(resolved_app, password, plaintext_mode)
     if use_fd:

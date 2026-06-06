@@ -522,3 +522,47 @@ class TestDispatch:
         )
         env_arg = subprocess.run.call_args[1]["env"]
         assert env_arg["LOCAL"] == "env_var"
+
+    def test_local_file_decline_file_mode_not_found(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("LOCAL=used\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("kleys.utils.setup_cleanup")
+        import subprocess
+
+        subprocess.run.reset_mock()
+        mocker.patch.object(subprocess, "run", side_effect=FileNotFoundError())
+        with pytest.raises(SystemExit) as exc:
+            modes.dispatch(
+                command=["nonexistent"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=False,
+                password=None,
+                plaintext_mode=False,
+            )
+        assert exc.value.code == 127
+
+    def test_local_file_decline_source_mode_not_found(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("LOCAL=env_var\n")
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("kleys.utils.setup_cleanup")
+        import subprocess
+
+        subprocess.run.reset_mock()
+        mocker.patch.object(subprocess, "run", side_effect=FileNotFoundError())
+        with pytest.raises(SystemExit) as exc:
+            modes.dispatch(
+                command=["nonexistent"],
+                file=str(file),
+                app_name="testapp",
+                source_mode=True,
+                password=None,
+                plaintext_mode=False,
+            )
+        assert exc.value.code == 127

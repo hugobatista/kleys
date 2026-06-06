@@ -33,10 +33,32 @@ class TestParseOptions:
         assert opts["file"] == "custom.env"
         assert cmd == ["run", "test"]
 
+    def test_secrets_file_equals_syntax(self) -> None:
+        opts, cmd = cli._parse_options(
+            ["--secrets-file=custom.env", "run", "test"]
+        )
+        assert opts["file"] == "custom.env"
+        assert cmd == ["run", "test"]
+
     def test_secrets_file_short(self) -> None:
         opts, cmd = cli._parse_options(["-f", "custom.env", "run"])
         assert opts["file"] == "custom.env"
         assert cmd == ["run"]
+
+    def test_key_equals_syntax(self) -> None:
+        opts, cmd = cli._parse_options(["--key=myapp", "run", "test"])
+        assert opts["app_name"] == "myapp"
+        assert cmd == ["run", "test"]
+
+    def test_key_equals_no_command(self) -> None:
+        opts, cmd = cli._parse_options(["--key=myapp"])
+        assert opts["app_name"] == "myapp"
+        assert cmd == []
+
+    def test_key_equals_with_double_dash(self) -> None:
+        opts, cmd = cli._parse_options(["--key=myapp", "--", "cat", ".env"])
+        assert opts["app_name"] == "myapp"
+        assert cmd == ["cat", ".env"]
 
     def test_key_option(self) -> None:
         opts, cmd = cli._parse_options(["--key", "myapp", "run", "test"])
@@ -56,6 +78,11 @@ class TestParseOptions:
     def test_export_short(self) -> None:
         opts, cmd = cli._parse_options(["-e", "run"])
         assert opts["source_mode"] is True
+        assert cmd == ["run"]
+
+    def test_password_equals_syntax(self) -> None:
+        opts, cmd = cli._parse_options(["--password=hunter2", "run"])
+        assert opts["password"] == "hunter2"
         assert cmd == ["run"]
 
     def test_password_option(self) -> None:
@@ -125,6 +152,13 @@ class TestParseOptions:
     def test_no_comand_returns_empty(self) -> None:
         opts, cmd = cli._parse_options(["--export"])
         assert cmd == []
+
+    def test_key_equals_with_unknown_option_before_dd(self) -> None:
+        opts, cmd = cli._parse_options(
+            ["--key=endurain-renovate", "-export", "--", "cmd", "arg"]
+        )
+        assert opts["app_name"] == "endurain-renovate"
+        assert cmd == ["-export", "--", "cmd", "arg"]
 
     def test_double_dash_separator(self) -> None:
         opts, cmd = cli._parse_options(["--key", "myapp", "--", "cat", ".env"])
@@ -210,6 +244,10 @@ class TestParseShowOptions:
         opts = cli._parse_show_options([])
         assert opts == {"app_name": None, "password": None}
 
+    def test_key_equals_syntax(self) -> None:
+        opts = cli._parse_show_options(["--key=myapp"])
+        assert opts["app_name"] == "myapp"
+
     def test_key_option(self) -> None:
         opts = cli._parse_show_options(["--key", "myapp"])
         assert opts["app_name"] == "myapp"
@@ -217,6 +255,10 @@ class TestParseShowOptions:
     def test_key_short(self) -> None:
         opts = cli._parse_show_options(["-k", "myapp"])
         assert opts["app_name"] == "myapp"
+
+    def test_password_equals_syntax(self) -> None:
+        opts = cli._parse_show_options(["--password=hunter2"])
+        assert opts["password"] == "hunter2"
 
     def test_password_option(self) -> None:
         opts = cli._parse_show_options(["--password", "hunter2"])
@@ -249,6 +291,10 @@ class TestParseClearOptions:
     def test_no_args_defaults(self) -> None:
         opts = cli._parse_clear_options([])
         assert opts == {"app_name": None, "force": False}
+
+    def test_key_equals_syntax(self) -> None:
+        opts = cli._parse_clear_options(["--key=myapp"])
+        assert opts["app_name"] == "myapp"
 
     def test_key_option(self) -> None:
         opts = cli._parse_clear_options(["--key", "myapp"])

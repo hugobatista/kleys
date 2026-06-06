@@ -119,6 +119,28 @@ Options:
 """
 
 
+_PASSWORD_WARNING = (
+    "Warning: --password is visible in process listings"
+    " (e.g., ps aux on Unix/macOS, tasklist on Windows)."
+    " Use KLEYS_PASSWORD env var or interactive prompt instead."
+)
+
+
+def _consume_opt_val(
+    args: list[str], i: int, *names: str
+) -> tuple[str, int] | None:
+    a = args[i]
+    for name in names:
+        if a.startswith(f"{name}="):
+            return a.split("=", 1)[1], i + 1
+        if a == name:
+            if i + 1 >= len(args):
+                error(f"error: {name} requires a value")
+                sys.exit(1)
+            return args[i + 1], i + 2
+    return None
+
+
 def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
     opts = {
         "file": ".env",
@@ -133,32 +155,16 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
         if a in ("--help", "-h"):
             sys.stdout.write(_RUN_HELP)
             sys.exit(0)
-        elif a in ("--secrets-file", "-f"):
-            if i + 1 >= len(args):
-                error("error: --secrets-file requires a value")
-                sys.exit(1)
-            opts["file"] = args[i + 1]
-            i += 2
-        elif a in ("--key", "-k"):
-            if i + 1 >= len(args):
-                error("error: --key requires a value")
-                sys.exit(1)
-            opts["app_name"] = args[i + 1]
-            i += 2
+        elif r := _consume_opt_val(args, i, "--secrets-file", "-f"):
+            opts["file"], i = r
+        elif r := _consume_opt_val(args, i, "--key", "-k"):
+            opts["app_name"], i = r
         elif a in ("--export", "-e"):
             opts["source_mode"] = True
             i += 1
-        elif a == "--password":
-            if i + 1 >= len(args):
-                error("error: --password requires a value")
-                sys.exit(1)
-            warn(
-                "Warning: --password is visible in process listings"
-                " (e.g., ps aux on Unix/macOS, tasklist on Windows)."
-                " Use KLEYS_PASSWORD env var or interactive prompt instead."
-            )
-            opts["password"] = args[i + 1]
-            i += 2
+        elif r := _consume_opt_val(args, i, "--password"):
+            warn(_PASSWORD_WARNING)
+            opts["password"], i = r
         elif a in ("--unencrypted", "-u"):
             opts["plaintext_mode"] = True
             i += 1
@@ -181,23 +187,11 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
         if a in ("--help", "-h"):
             sys.stdout.write(_SHOW_HELP)
             sys.exit(0)
-        elif a in ("--key", "-k"):
-            if i + 1 >= len(args):
-                error("error: --key requires a value")
-                sys.exit(1)
-            opts["app_name"] = args[i + 1]
-            i += 2
-        elif a == "--password":
-            if i + 1 >= len(args):
-                error("error: --password requires a value")
-                sys.exit(1)
-            warn(
-                "Warning: --password is visible in process listings"
-                " (e.g., ps aux on Unix/macOS, tasklist on Windows)."
-                " Use KLEYS_PASSWORD env var or interactive prompt instead."
-            )
-            opts["password"] = args[i + 1]
-            i += 2
+        elif r := _consume_opt_val(args, i, "--key", "-k"):
+            opts["app_name"], i = r
+        elif r := _consume_opt_val(args, i, "--password"):
+            warn(_PASSWORD_WARNING)
+            opts["password"], i = r
         else:
             error(f"error: unknown option {a!r}")
             sys.exit(1)
@@ -215,12 +209,8 @@ def _parse_clear_options(args: list[str]) -> dict[str, Any]:
         if a in ("--help", "-h"):
             sys.stdout.write(_CLEAR_HELP)
             sys.exit(0)
-        elif a in ("--key", "-k"):
-            if i + 1 >= len(args):
-                error("error: --key requires a value")
-                sys.exit(1)
-            opts["app_name"] = args[i + 1]
-            i += 2
+        elif r := _consume_opt_val(args, i, "--key", "-k"):
+            opts["app_name"], i = r
         elif a == "--force":
             opts["force"] = True
             i += 1
