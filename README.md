@@ -108,7 +108,7 @@ kleys clear [--key KEY]
 
 | Option | Description |
 |--------|-------------|
-| `--secrets-file FILE`, `-f FILE` | Path used to expose secrets to the subprocess in file mode (default mode). A temp file is created at this path with the secrets and `SECRETS_FILE` env var points to it. If FILE already exists, kleys offers to import it into the keyring instead (default: `.env`) |
+| `--secrets-file FILE`, `-f FILE` | Path used to expose secrets to the subprocess in file mode (default mode). A temp file is created at this path with the secrets and `SECRETS_FILE` env var points to it. If FILE already exists and no keyring entry is found for the key, kleys offers to import it into the keyring (default: `.env`) |
 | `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
 | `--export`, `-e` | Export secrets as environment variables directly to the subprocess (overrides file mode, no temp file created). The secrets content must be in valid `KEY=VALUE` format per line — the user is responsible for correct formatting. |
 | `--password PASSWORD` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
@@ -177,7 +177,7 @@ source .env && ansible-playbook site.yml
 ```
 
 **What happens with `--export`:**
-1. Loads secrets from keyring (or uses local `.env` file if it exists)
+1. Loads secrets from keyring (or offers to import a local `.env` file if no keyring entry exists)
 2. Parses every `KEY=VALUE` pair and sets them in the subprocess environment
 3. Runs `ansible-playbook site.yml` with all env vars available
 4. No temp file is needed when loading from keyring — secrets stay in memory
@@ -434,11 +434,13 @@ KLEYS_PASSWORD=$(cat /etc/secret.txt) kleys deploy.sh
 
 On first use (when secrets aren't in keyring):
 
-1. kleys prompts: "Paste your secrets content..."
-2. Paste your `.env` content (KEY=VALUE format)
-3. Press `Ctrl-D` (Unix) / `Ctrl-Z + Enter` (Windows) to finish (or `Ctrl-C` to cancel)
-4. Secrets are encrypted and stored in system keyring
-5. Future runs load automatically
+1. kleys checks the keyring for an existing entry — if found, it uses those secrets and skips setup
+2. If no keyring entry exists and a `.env` file is present, kleys offers to import it
+3. If you decline (or no `.env` file exists), kleys prompts: "Paste your secrets content..."
+4. Paste your `.env` content (KEY=VALUE format)
+5. Press `Ctrl-D` (Unix) / `Ctrl-Z + Enter` (Windows) to finish (or `Ctrl-C` to cancel)
+6. Secrets are encrypted and stored in system keyring
+7. Future runs load automatically
 
 ## Security Notes
 

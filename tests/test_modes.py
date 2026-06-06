@@ -138,8 +138,10 @@ class TestOfferStoreFile:
             modes._offer_store_file(str(file), "myapp", None, False)
 
 
-class TestLoadSecrets:
-    def test_phase1_encrypted_found(self, mocker: MockerFixture) -> None:
+class TestTryLoadFromKeyring:
+    def test_encrypted_found_decrypts_and_returns(
+        self, mocker: MockerFixture
+    ) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
             side_effect=lambda s: (
@@ -151,19 +153,19 @@ class TestLoadSecrets:
             "kleys.modes.crypto.decrypt",
             return_value="decrypted-content",
         )
-        result = modes._load_secrets("myapp", None, False)
+        result = modes._try_load_from_keyring("myapp", None, False)
         assert result == "decrypted-content"
 
-    def test_phase1_no_password(self, mocker: MockerFixture) -> None:
+    def test_no_password_exits(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
             return_value="encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value=None)
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, False)
+            modes._try_load_from_keyring("myapp", None, False)
 
-    def test_phase1_decrypt_fails(self, mocker: MockerFixture) -> None:
+    def test_decrypt_fails_exits(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
             side_effect=lambda s: (
@@ -173,71 +175,76 @@ class TestLoadSecrets:
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.decrypt", return_value=None)
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, False)
+            modes._try_load_from_keyring("myapp", None, False)
 
-    def test_phase1_skipped_in_plaintext_mode(
-        self, mocker: MockerFixture
-    ) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
-        mocker.patch("builtins.input", side_effect=["plain=text", EOFError])
-        result = modes._load_secrets("myapp", None, True)
-        assert result == "plain=text"
-
-    def test_phase2_plaintext_found(self, mocker: MockerFixture) -> None:
+    def test_plaintext_found_returns(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
             side_effect=lambda s: (
                 None if s == "myapp-encrypted" else "plain-content"
             ),
         )
-        result = modes._load_secrets("myapp", None, False)
+        result = modes._try_load_from_keyring("myapp", None, False)
         assert result == "plain-content"
 
-    def test_phase3_user_input(self, mocker: MockerFixture) -> None:
+    def test_none_when_missing(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        result = modes._try_load_from_keyring("myapp", None, False)
+        assert result is None
+
+    def test_none_when_missing_plaintext_mode(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        result = modes._try_load_from_keyring("myapp", None, True)
+        assert result is None
+
+
+class TestInteractivePromptAndStore:
+    def test_user_input_encrypted(self, mocker: MockerFixture) -> None:
         mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
-        result = modes._load_secrets("myapp", None, False)
+        result = modes._interactive_prompt_and_store("myapp", None, False)
         assert result == "USER=provided"
 
-    def test_phase3_empty_line_terminates(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+    def test_user_input_plaintext(self, mocker: MockerFixture) -> None:
+        mocker.patch("builtins.input", side_effect=["plain=text", EOFError])
+        result = modes._interactive_prompt_and_store("myapp", None, True)
+        assert result == "plain=text"
+
+    def test_empty_line_terminates(self, mocker: MockerFixture) -> None:
         mocker.patch("builtins.input", side_effect=["KEY=val", ""])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
-        result = modes._load_secrets("myapp", None, False)
+        result = modes._interactive_prompt_and_store("myapp", None, False)
         assert result == "KEY=val"
 
-    def test_phase3_empty_input(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+    def test_empty_input_exits(self, mocker: MockerFixture) -> None:
         mocker.patch("builtins.input", side_effect=EOFError)
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, False)
+            modes._interactive_prompt_and_store("myapp", None, False)
 
-    def test_phase3_no_password_error(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
+    def test_no_password_error_exits(self, mocker: MockerFixture) -> None:
         mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value=None)
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, False)
+            modes._interactive_prompt_and_store("myapp", None, False)
 
-    def test_phase3_keyring_unavailable_plaintext(
+    def test_keyring_unavailable_plaintext_exits(
         self, mocker: MockerFixture
     ) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
         mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch(
             "kleys.modes.kr.store",
             side_effect=KeyringUnavailableError,
         )
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, True)
+            modes._interactive_prompt_and_store("myapp", None, True)
 
-    def test_phase3_keyring_unavailable_encrypted(
+    def test_keyring_unavailable_encrypted_exits(
         self, mocker: MockerFixture
     ) -> None:
-        mocker.patch("kleys.modes.kr.lookup", return_value=None)
         mocker.patch("builtins.input", side_effect=["USER=provided", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
@@ -246,7 +253,7 @@ class TestLoadSecrets:
             side_effect=KeyringUnavailableError,
         )
         with pytest.raises(SystemExit):
-            modes._load_secrets("myapp", None, False)
+            modes._interactive_prompt_and_store("myapp", None, False)
 
 
 class TestExecFile:
@@ -596,13 +603,11 @@ class TestDispatch:
             )
         assert exc.value.code == 127
 
-    def test_local_file_decline_key_exists_file_mode(
+    def test_local_file_key_exists_file_mode(
         self, mocker: MockerFixture, tmp_path: Path
     ) -> None:
         file = tmp_path / ".env"
         file.write_text("LOCAL=from_dotenv\n")
-        mocker.patch("typer.prompt", return_value="n")
-        mocker.patch("typer.confirm", return_value=True)
         mocker.patch(
             "kleys.modes.kr.lookup",
             side_effect=lambda s: (
@@ -631,12 +636,11 @@ class TestDispatch:
         env_arg = subprocess.run.call_args[1]["env"]
         assert env_arg["SECRETS_FILE"] == str(file.absolute())
 
-    def test_local_file_decline_key_exists_source_mode(
+    def test_local_file_key_exists_source_mode(
         self, mocker: MockerFixture, tmp_path: Path
     ) -> None:
         file = tmp_path / ".env"
         file.write_text("LOCAL=from_dotenv\n")
-        mocker.patch("typer.prompt", return_value="n")
         mocker.patch(
             "kleys.modes.kr.lookup",
             side_effect=lambda s: (

@@ -85,11 +85,11 @@ def _offer_store_file(
     return True
 
 
-def _load_secrets(
+def _try_load_from_keyring(
     app_name: str,
     password: str | None,
     plaintext_mode: bool,
-) -> str:
+) -> str | None:
     encrypted_key = f"{app_name}-encrypted"
     if not plaintext_mode:
         encrypted_content = kr.lookup(encrypted_key)
@@ -118,6 +118,14 @@ def _load_secrets(
                 f"'{app_name}' \u2014 unencrypted"
             )
         return plain_content
+    return None
+
+
+def _interactive_prompt_and_store(
+    app_name: str,
+    password: str | None,
+    plaintext_mode: bool,
+) -> str:
     console.warn(f"\u26a0 No secrets found for key='{app_name}' in keyring.")
     console.info(
         "Paste secrets content (KEY=VALUE), then press"
@@ -264,9 +272,17 @@ def dispatch(
     setup_cleanup()
     resolved_app = resolve_app_name(app_name)
     use_fd = any("@SECRETS@" in arg for arg in command)
-    if not use_fd and os.path.exists(file):
+
+    secrets_content = _try_load_from_keyring(
+        resolved_app, password, plaintext_mode
+    )
+
+    if secrets_content is None and not use_fd and os.path.exists(file):
         if _offer_store_file(file, resolved_app, password, plaintext_mode):
             os.remove(file)
+            secrets_content = _try_load_from_keyring(
+                resolved_app, password, plaintext_mode
+            )
         elif not source_mode:
             console.warn(
                 f"The existing '{file}' will be overwritten by the"
@@ -277,7 +293,12 @@ def dispatch(
                     sys.exit(1)
             except typer.Abort:
                 sys.exit(1)
-    secrets_content = _load_secrets(resolved_app, password, plaintext_mode)
+
+    if secrets_content is None:
+        secrets_content = _interactive_prompt_and_store(
+            resolved_app, password, plaintext_mode
+        )
+
     if use_fd:
         if sys.platform == "win32":
             console.error(
