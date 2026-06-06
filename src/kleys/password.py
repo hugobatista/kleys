@@ -15,15 +15,20 @@ def resolve_encrypt_password(explicit: str | None) -> str | None:
         return env_pw
     if not sys.stdin.isatty():
         return None
-    pw = cast(str, typer.prompt("Enter encryption password", hide_input=True))
-    if not pw:
-        error("Error: Password cannot be empty.")
-        return None
-    confirm = cast(str, typer.prompt("Confirm password", hide_input=True))
-    if pw != confirm:
-        error("Error: Passwords do not match.")
-        return None
-    return pw
+    while True:
+        pw = cast(
+            str, typer.prompt("Enter encryption password", hide_input=True)
+        )
+        typer.echo("")
+        if not pw:
+            error("Error: Password cannot be empty.")
+            continue
+        confirm = cast(str, typer.prompt("Confirm password", hide_input=True))
+        typer.echo("")
+        if pw != confirm:
+            error("Error: Passwords do not match.")
+            continue
+        return pw
 
 
 def resolve_decrypt_password(explicit: str | None) -> str | None:
@@ -35,6 +40,7 @@ def resolve_decrypt_password(explicit: str | None) -> str | None:
     if not sys.stdin.isatty():
         return None
     pw = cast(str, typer.prompt("Enter decryption password", hide_input=True))
+    typer.echo("")
     if not pw:
         return None
     return pw

@@ -279,6 +279,7 @@ def _handle_clear(args: list[str]) -> None:
                 f" '{app_name}'. Continue?"
             )
             confirmed = typer.confirm(msg)
+            typer.echo("")
         except typer.Abort:
             confirmed = False
         if not confirmed:

@@ -47,6 +47,8 @@ def _offer_store_file(
         )
     except typer.Abort:
         return False
+    else:
+        typer.echo("")
     if not answer.lower().startswith("y"):
         return False
     with open(file) as f:
@@ -180,6 +182,18 @@ def _interactive_prompt_and_store(
     return secrets_input
 
 
+def _warn_overwrite(file: str) -> None:
+    console.warn(
+        f"The existing '{file}' will be overwritten by the secrets temp file."
+    )
+    try:
+        if not typer.confirm("Continue?"):
+            sys.exit(1)
+    except typer.Abort:
+        sys.exit(1)
+    typer.echo("")
+
+
 def _env(**extra: str) -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if k != "KLEYS_PASSWORD"}
     env.update(extra)
@@ -277,22 +291,17 @@ def dispatch(
         resolved_app, password, plaintext_mode
     )
 
-    if secrets_content is None and not use_fd and os.path.exists(file):
-        if _offer_store_file(file, resolved_app, password, plaintext_mode):
-            os.remove(file)
-            secrets_content = _try_load_from_keyring(
-                resolved_app, password, plaintext_mode
-            )
+    if not use_fd and os.path.exists(file):
+        if secrets_content is None:
+            if _offer_store_file(file, resolved_app, password, plaintext_mode):
+                os.remove(file)
+                secrets_content = _try_load_from_keyring(
+                    resolved_app, password, plaintext_mode
+                )
+            elif not source_mode:
+                _warn_overwrite(file)
         elif not source_mode:
-            console.warn(
-                f"The existing '{file}' will be overwritten by the"
-                " secrets temp file."
-            )
-            try:
-                if not typer.confirm("Continue?"):
-                    sys.exit(1)
-            except typer.Abort:
-                sys.exit(1)
+            _warn_overwrite(file)
 
     if secrets_content is None:
         secrets_content = _interactive_prompt_and_store(

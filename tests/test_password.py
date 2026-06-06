@@ -35,24 +35,27 @@ class TestResolveEncryptPassword:
         result = resolve_encrypt_password(None)
         assert result == "my-password"
 
-    def test_prompt_empty_password_error(self, mocker: MockerFixture) -> None:
+    def test_prompt_empty_password_retries(self, mocker: MockerFixture) -> None:
         mocker.patch("sys.stdin.isatty", return_value=True)
-        mocker.patch("typer.prompt", return_value="")
+        mocker.patch("typer.prompt", side_effect=["", "valid_pw", "valid_pw"])
         secho = mocker.patch("typer.secho")
         result = resolve_encrypt_password(None)
-        assert result is None
+        assert result == "valid_pw"
         secho.assert_any_call(
             "Error: Password cannot be empty.",
             fg=typer.colors.RED,
             err=True,
         )
 
-    def test_prompt_mismatch_error(self, mocker: MockerFixture) -> None:
+    def test_prompt_mismatch_retries(self, mocker: MockerFixture) -> None:
         mocker.patch("sys.stdin.isatty", return_value=True)
-        mocker.patch("typer.prompt", side_effect=["password1", "password2"])
+        mocker.patch(
+            "typer.prompt",
+            side_effect=["password1", "password2", "good", "good"],
+        )
         secho = mocker.patch("typer.secho")
         result = resolve_encrypt_password(None)
-        assert result is None
+        assert result == "good"
         secho.assert_any_call(
             "Error: Passwords do not match.",
             fg=typer.colors.RED,
@@ -113,4 +116,4 @@ class TestResolveDecryptPassword:
         mocker.patch("typer.prompt", return_value="my-pw")
         echo = mocker.patch("typer.echo")
         resolve_decrypt_password(None)
-        echo.assert_not_called()
+        echo.assert_called_once_with("")

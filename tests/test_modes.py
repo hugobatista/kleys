@@ -369,6 +369,9 @@ class TestDispatch:
 
     def test_file_mode(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch("typer.echo")
         mocker.patch("builtins.input", side_effect=["KEY=val", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
@@ -394,6 +397,8 @@ class TestDispatch:
 
     def test_source_mode(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
+        mocker.patch("typer.prompt", return_value="n")
+        mocker.patch("typer.echo")
         mocker.patch("builtins.input", side_effect=["DB=prod", EOFError])
         mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
@@ -618,6 +623,8 @@ class TestDispatch:
         mocker.patch(
             "kleys.modes.crypto.decrypt", return_value="KEY=from_keyring"
         )
+        mocker.patch("typer.confirm", return_value=True)
+        mocker.patch("typer.echo")
         mocker.patch("builtins.open", mocker.mock_open())
         mocker.patch("os.chmod")
         mocker.patch("kleys.utils.setup_cleanup")
