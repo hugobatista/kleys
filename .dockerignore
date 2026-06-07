@@ -1,6 +1,7 @@
 .git/
 .gitignore
 .venv/
+.env
 __pycache__/
 *.pyc
 .mypy_cache/

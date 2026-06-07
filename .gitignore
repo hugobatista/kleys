@@ -1,11 +1,21 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 .venv/
 *.egg-info/
 dist/
+build/
 .coverage
+coverage/
+coverage.xml
+htmlcov/
 .mypy_cache/
 .pytest_cache/
-.ruff_cache/.coverage
+.ruff_cache/
+
+# Environment
+.env
+
+# Project-specific
 bin/act
