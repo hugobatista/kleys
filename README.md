@@ -135,6 +135,24 @@ Both forms are accepted: `kleys [OPTIONS] COMMAND [ARGS...]` and
 | `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
 | `--password PASSWORD` | Decryption password (prompts if omitted and needed) |
 
+For machine-readable output, `lookup` accepts `--json`: on success it prints
+`{"secrets": {"KEY": "value", ...}}`; on failure `{"error": {"kind": ...,
+"message": ...}}` with kinds `NO_SECRETS`, `NO_PASSWORD`, `DECRYPT_FAILED`.
+In `--json` mode kleys never prompts — the password is read from
+`--password` or `KLEYS_PASSWORD` only. This is the contract used by the
+[Hermes Agent](https://github.com/hugobatista/hermes-kleys) secret-source
+plugin.
+
+> **Expected format:** the stored content must be in `KEY=VALUE` format
+> per line. In `--json` mode kleys parses those pairs — blank lines, `#`
+> comments and lines without `=` are skipped. Content with no such pairs
+> yields `{"secrets": {}}`.
+
+```bash
+kleys lookup --key myproject --json
+# {"secrets": {"API_KEY": "abc", "EMPTY": ""}}
+```
+
 ### Environment
 
 | Variable | Description |
