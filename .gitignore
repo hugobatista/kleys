@@ -19,3 +19,5 @@ htmlcov/
 
 # Project-specific
 bin/act
+
+graphify-out/
