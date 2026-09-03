@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
@@ -237,52 +238,52 @@ class TestMain:
         assert kwargs["command"] == ["cmd", "--ext", "val"]
 
 
-class TestParseShowOptions:
-    """Tests for _parse_show_options."""
+class TestParseLookupOptions:
+    """Tests for _parse_lookup_options."""
 
     def test_no_args_defaults(self) -> None:
-        opts = cli._parse_show_options([])
+        opts = cli._parse_lookup_options([])
         assert opts == {"app_name": None, "password": None}
 
     def test_key_equals_syntax(self) -> None:
-        opts = cli._parse_show_options(["--key=myapp"])
+        opts = cli._parse_lookup_options(["--key=myapp"])
         assert opts["app_name"] == "myapp"
 
     def test_key_option(self) -> None:
-        opts = cli._parse_show_options(["--key", "myapp"])
+        opts = cli._parse_lookup_options(["--key", "myapp"])
         assert opts["app_name"] == "myapp"
 
     def test_key_short(self) -> None:
-        opts = cli._parse_show_options(["-k", "myapp"])
+        opts = cli._parse_lookup_options(["-k", "myapp"])
         assert opts["app_name"] == "myapp"
 
     def test_password_equals_syntax(self) -> None:
-        opts = cli._parse_show_options(["--password=hunter2"])
+        opts = cli._parse_lookup_options(["--password=hunter2"])
         assert opts["password"] == "hunter2"
 
     def test_password_option(self) -> None:
-        opts = cli._parse_show_options(["--password", "hunter2"])
+        opts = cli._parse_lookup_options(["--password", "hunter2"])
         assert opts["password"] == "hunter2"
 
     def test_help_exits(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["--help"])
+            cli._parse_lookup_options(["--help"])
 
     def test_help_h_exits(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["-h"])
+            cli._parse_lookup_options(["-h"])
 
     def test_unknown_option_exits(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["--unknown"])
+            cli._parse_lookup_options(["--unknown"])
 
     def test_key_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["--key"])
+            cli._parse_lookup_options(["--key"])
 
     def test_password_missing_value(self) -> None:
         with pytest.raises(SystemExit):
-            cli._parse_show_options(["--password"])
+            cli._parse_lookup_options(["--password"])
 
 
 class TestParseClearOptions:
@@ -325,13 +326,16 @@ class TestParseClearOptions:
             cli._parse_clear_options(["--key"])
 
 
-class TestHandleShow:
-    """Tests for _handle_show."""
+class TestHandleLookup:
+    """Tests for _handle_lookup."""
 
     def test_encrypted_found_decrypts_and_displays(
         self, mocker: MockerFixture
     ) -> None:
-        mocker.patch("kleys.keyring_.lookup", return_value="encrypted:b64==")
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
         mocker.patch(
             "kleys.cli.resolve_decrypt_password", return_value="thepassword"
         )
@@ -340,21 +344,22 @@ class TestHandleShow:
         )
         mock_info = mocker.patch("kleys.cli.info")
 
-        cli._handle_show(["--key", "myapp"])
+        cli._handle_lookup(["--key", "myapp"])
 
-        assert mock_info.call_count == 2
-        mock_info.assert_any_call("Secrets for 'myapp':")
-        mock_info.assert_any_call("KEY=value\nSECRET=123")
+        mock_info.assert_called_once_with("KEY=value\nSECRET=123")
 
     def test_encrypted_found_no_password_exits(
         self, mocker: MockerFixture
     ) -> None:
-        mocker.patch("kleys.keyring_.lookup", return_value="encrypted:b64==")
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
         mocker.patch("kleys.cli.resolve_decrypt_password", return_value=None)
         mock_error = mocker.patch("kleys.cli.error")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--key", "myapp"])
+            cli._handle_lookup(["--key", "myapp"])
 
         mock_error.assert_called_once()
         assert "password" in mock_error.call_args[0][0].lower()
@@ -362,7 +367,10 @@ class TestHandleShow:
     def test_encrypted_found_decrypt_fails_exits(
         self, mocker: MockerFixture
     ) -> None:
-        mocker.patch("kleys.keyring_.lookup", return_value="encrypted:b64==")
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
         mocker.patch(
             "kleys.cli.resolve_decrypt_password", return_value="thepassword"
         )
@@ -370,30 +378,25 @@ class TestHandleShow:
         mock_error = mocker.patch("kleys.cli.error")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--key", "myapp"])
+            cli._handle_lookup(["--key", "myapp"])
 
         mock_error.assert_called_once()
         assert "decrypt" in mock_error.call_args[0][0].lower()
 
     def test_plaintext_found_displays(self, mocker: MockerFixture) -> None:
-        mock_lookup = mocker.patch("kleys.keyring_.lookup")
-        mock_lookup.side_effect = lambda key: (
-            None if key.endswith("-encrypted") else "PLAIN=value"
-        )
+        mocker.patch("kleys.keyring_.lookup", return_value="PLAIN=value")
         mock_info = mocker.patch("kleys.cli.info")
 
-        cli._handle_show(["--key", "myapp"])
+        cli._handle_lookup(["--key", "myapp"])
 
-        assert mock_info.call_count == 2
-        mock_info.assert_any_call("Secrets for 'myapp' (plaintext):")
-        mock_info.assert_any_call("PLAIN=value")
+        mock_info.assert_called_once_with("PLAIN=value")
 
     def test_no_secrets_exits_with_error(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.keyring_.lookup", return_value=None)
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
-            cli._handle_show(["--key", "myapp"])
+            cli._handle_lookup(["--key", "myapp"])
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
@@ -402,40 +405,17 @@ class TestHandleShow:
 class TestHandleClear:
     """Tests for _handle_clear."""
 
-    def test_deletes_both_encrypted_and_plaintext(
-        self, mocker: MockerFixture
-    ) -> None:
-        mocker.patch("kleys.keyring_.delete", return_value=True)
+    def test_deletes_entry(self, mocker: MockerFixture) -> None:
+        mock_delete = mocker.patch("kleys.keyring_.delete", return_value=True)
         mock_success = mocker.patch("kleys.cli.success")
 
         cli._handle_clear(["--key", "myapp", "--force"])
 
-        assert mock_success.call_count == 2
-        mock_success.assert_any_call("Deleted encrypted secrets for 'myapp'")
-        mock_success.assert_any_call("Deleted plaintext secrets for 'myapp'")
-
-    def test_only_encrypted_deleted(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.keyring_.delete", side_effect=[True, False])
-        mock_success = mocker.patch("kleys.cli.success")
-
-        cli._handle_clear(["--key", "myapp", "--force"])
-
-        mock_success.assert_called_once_with(
-            "Deleted encrypted secrets for 'myapp'"
-        )
-
-    def test_only_plaintext_deleted(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.keyring_.delete", side_effect=[False, True])
-        mock_success = mocker.patch("kleys.cli.success")
-
-        cli._handle_clear(["--key", "myapp", "--force"])
-
-        mock_success.assert_called_once_with(
-            "Deleted plaintext secrets for 'myapp'"
-        )
+        mock_success.assert_called_once_with("Deleted secrets for 'myapp'")
+        mock_delete.assert_called_once_with("myapp")
 
     def test_nothing_to_delete_exits(self, mocker: MockerFixture) -> None:
-        mocker.patch("kleys.keyring_.delete", side_effect=[False, False])
+        mocker.patch("kleys.keyring_.delete", return_value=False)
         mock_warn = mocker.patch("kleys.cli.warn")
 
         with pytest.raises(SystemExit):
@@ -452,7 +432,7 @@ class TestHandleClear:
 
         cli._handle_clear(["--key", "myapp"])
 
-        assert mock_success.call_count == 2
+        mock_success.assert_called_once_with("Deleted secrets for 'myapp'")
 
     def test_cancelled_by_user(self, mocker: MockerFixture) -> None:
         mocker.patch("sys.stdin.isatty", return_value=True)
@@ -489,130 +469,317 @@ class TestHandleClear:
         assert "force" in mock_error.call_args[0][0].lower()
 
 
+class TestParseStoreOptions:
+    def test_no_args_defaults(self) -> None:
+        opts = cli._parse_store_options([])
+        assert opts["app_name"] is None
+        assert opts["password"] is None
+        assert opts["plaintext_mode"] is False
+        assert opts["file"] is None
+
+    def test_key_option(self) -> None:
+        opts = cli._parse_store_options(["--key", "myapp"])
+        assert opts["app_name"] == "myapp"
+
+    def test_key_short(self) -> None:
+        opts = cli._parse_store_options(["-k", "myapp"])
+        assert opts["app_name"] == "myapp"
+
+    def test_secrets_file_option(self) -> None:
+        opts = cli._parse_store_options(["--secrets-file", "custom.env"])
+        assert opts["file"] == "custom.env"
+
+    def test_secrets_file_short(self) -> None:
+        opts = cli._parse_store_options(["-f", "custom.env"])
+        assert opts["file"] == "custom.env"
+
+    def test_password_option(self) -> None:
+        opts = cli._parse_store_options(["--password", "p4ss"])
+        assert opts["password"] == "p4ss"
+
+    def test_unencrypted_flag(self) -> None:
+        opts = cli._parse_store_options(["--unencrypted"])
+        assert opts["plaintext_mode"] is True
+
+    def test_unencrypted_short(self) -> None:
+        opts = cli._parse_store_options(["-u"])
+        assert opts["plaintext_mode"] is True
+
+    def test_help_exits(self) -> None:
+        with pytest.raises(SystemExit):
+            cli._parse_store_options(["--help"])
+
+    def test_unknown_option_exits(self) -> None:
+        with pytest.raises(SystemExit):
+            cli._parse_store_options(["--unknown"])
+
+    def test_key_missing_value(self) -> None:
+        with pytest.raises(SystemExit):
+            cli._parse_store_options(["--key"])
+
+
+class TestHandleStore:
+    def test_stores_from_file_after_confirmation(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("os.path.exists", return_value=True)
+        mock_offer = mocker.patch(
+            "kleys.modes._offer_store_file", return_value=True
+        )
+        mock_remove = mocker.patch("os.remove")
+
+        cli._handle_store(["--secrets-file", "custom.env"])
+
+        mock_offer.assert_called_once_with(
+            "custom.env", mocker.ANY, None, False
+        )
+        mock_remove.assert_called_once_with("custom.env")
+
+    def test_stores_default_env_after_confirmation(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        file = tmp_path / ".env"
+        file.write_text("KEY=val\n")
+        mock_offer = mocker.patch(
+            "kleys.modes._offer_store_file", return_value=True
+        )
+        mock_remove = mocker.patch("os.remove")
+
+        monkeypatch.chdir(tmp_path)
+        cli._handle_store([])
+
+        mock_offer.assert_called_once_with(".env", mocker.ANY, None, False)
+        mock_remove.assert_called_once_with(".env")
+
+    def test_declined_confirmation_pastes(self, mocker: MockerFixture) -> None:
+        mocker.patch("os.path.exists", return_value=True)
+        mocker.patch("kleys.modes._offer_store_file", return_value=False)
+        mocker.patch("kleys.modes.prompt_paste_content", return_value="PASTE=1")
+        mock_store = mocker.patch("kleys.modes.store_content")
+        mock_remove = mocker.patch("os.remove")
+
+        cli._handle_store(["--secrets-file", "custom.env"])
+
+        mock_store.assert_called_once_with("PASTE=1", mocker.ANY, None, False)
+        mock_remove.assert_not_called()
+
+    def test_secrets_file_missing_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch("os.path.exists", return_value=False)
+        mock_error = mocker.patch("kleys.cli.error")
+
+        with pytest.raises(SystemExit):
+            cli._handle_store(["--secrets-file", "missing.env"])
+
+        mock_error.assert_called_once()
+        assert "File not found" in mock_error.call_args[0][0]
+
+    def test_paste_when_no_file(
+        self,
+        mocker: MockerFixture,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mocker.patch("kleys.modes.prompt_paste_content", return_value="PASTE=1")
+        mock_store = mocker.patch("kleys.modes.store_content")
+        mock_remove = mocker.patch("os.remove")
+
+        monkeypatch.chdir(tmp_path)
+        cli._handle_store([])
+
+        mock_store.assert_called_once_with("PASTE=1", mocker.ANY, None, False)
+        mock_remove.assert_not_called()
+
+
 class TestMainRouting:
     """Tests for main() subcommand routing."""
 
     def test_empty_args_exits(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         with pytest.raises(SystemExit) as exc:
             cli.main([])
         assert exc.value.code == 1
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_help_exits(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         with pytest.raises(SystemExit) as exc:
             cli.main(["--help"])
         assert exc.value.code == 0
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_version_exits(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         with pytest.raises(SystemExit) as exc:
             cli.main(["--version"])
         assert exc.value.code == 0
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_version_short_exits(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         with pytest.raises(SystemExit) as exc:
             cli.main(["-V"])
         assert exc.value.code == 0
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_run_subcommand(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["run", "echo", "hello"])
 
         mock_run.assert_called_once_with(["echo", "hello"])
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
-    def test_show_subcommand(self, mocker: MockerFixture) -> None:
+    def test_lookup_subcommand(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["lookup"])
+
+        mock_lookup.assert_called_once_with([])
+        mock_run.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_show_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["show"])
 
-        mock_show.assert_called_once_with([])
+        mock_lookup.assert_called_once_with([])
         mock_run.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_clear_subcommand(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["clear"])
 
         mock_clear.assert_called_once_with([])
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
 
     def test_list_alias(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["list"])
 
-        mock_show.assert_called_once_with([])
+        mock_lookup.assert_called_once_with([])
         mock_run.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_lookup_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["lookup", "--key", "myapp"])
+
+        mock_lookup.assert_called_once_with(["--key", "myapp"])
+        mock_run.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_store_subcommand(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+        mock_store = mocker.patch("kleys.cli._handle_store")
+
+        cli.main(["store", "--key", "myapp"])
+
+        mock_store.assert_called_once_with(["--key", "myapp"])
+        mock_run.assert_not_called()
+        mock_lookup.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_add_alias(self, mocker: MockerFixture) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+        mock_store = mocker.patch("kleys.cli._handle_store")
+
+        cli.main(["add"])
+
+        mock_store.assert_called_once_with([])
+        mock_run.assert_not_called()
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()
 
     def test_delete_alias(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["delete", "--key", "myapp", "--force"])
 
         mock_clear.assert_called_once_with(["--key", "myapp", "--force"])
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
 
     def test_rm_alias(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["rm", "--key", "myapp", "--force"])
 
         mock_clear.assert_called_once_with(["--key", "myapp", "--force"])
         mock_run.assert_not_called()
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
 
     def test_backward_compat_treats_as_run(self, mocker: MockerFixture) -> None:
         mock_run = mocker.patch("kleys.cli._handle_run")
-        mock_show = mocker.patch("kleys.cli._handle_show")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
         mock_clear = mocker.patch("kleys.cli._handle_clear")
 
         cli.main(["echo", "hello"])
 
         mock_run.assert_called_once_with(["echo", "hello"])
-        mock_show.assert_not_called()
+        mock_lookup.assert_not_called()
+        mock_clear.assert_not_called()
+
+    def test_backward_compat_key_before_command(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_run = mocker.patch("kleys.cli._handle_run")
+        mock_lookup = mocker.patch("kleys.cli._handle_lookup")
+        mock_clear = mocker.patch("kleys.cli._handle_clear")
+
+        cli.main(["--key", "app", "--", "echo", "hello"])
+
+        mock_run.assert_called_once_with(
+            ["--key", "app", "--", "echo", "hello"]
+        )
+        mock_lookup.assert_not_called()
         mock_clear.assert_not_called()

@@ -75,7 +75,7 @@ class TestOfferStoreFile:
         kr_store = mocker.patch("kleys.modes.kr.store")
         result = modes._offer_store_file(str(file), "myapp", None, False)
         assert result is True
-        kr_store.assert_called_once_with("myapp-encrypted", "encrypted-blob")
+        kr_store.assert_called_once_with("myapp", "encrypted-blob")
 
     def test_user_declines(self, mocker: MockerFixture, tmp_path: Path) -> None:
         file = tmp_path / ".env"
@@ -144,9 +144,7 @@ class TestTryLoadFromKeyring:
     ) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
-            side_effect=lambda s: (
-                "encrypted-blob" if s == "myapp-encrypted" else None
-            ),
+            return_value="kleys-enc:v1:encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
         mocker.patch(
@@ -159,7 +157,7 @@ class TestTryLoadFromKeyring:
     def test_no_password_exits(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
-            return_value="encrypted-blob",
+            return_value="kleys-enc:v1:encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value=None)
         with pytest.raises(SystemExit):
@@ -168,9 +166,7 @@ class TestTryLoadFromKeyring:
     def test_decrypt_fails_exits(self, mocker: MockerFixture) -> None:
         mocker.patch(
             "kleys.modes.kr.lookup",
-            side_effect=lambda s: (
-                "encrypted-blob" if s == "myapp-encrypted" else None
-            ),
+            return_value="kleys-enc:v1:encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
         mocker.patch("kleys.modes.crypto.decrypt", return_value=None)
@@ -178,14 +174,19 @@ class TestTryLoadFromKeyring:
             modes._try_load_from_keyring("myapp", None, False)
 
     def test_plaintext_found_returns(self, mocker: MockerFixture) -> None:
-        mocker.patch(
-            "kleys.modes.kr.lookup",
-            side_effect=lambda s: (
-                None if s == "myapp-encrypted" else "plain-content"
-            ),
-        )
+        mocker.patch("kleys.modes.kr.lookup", return_value="plain-content")
         result = modes._try_load_from_keyring("myapp", None, False)
         assert result == "plain-content"
+
+    def test_encrypted_ignored_in_plaintext_mode(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            "kleys.modes.kr.lookup",
+            return_value="kleys-enc:v1:encrypted-blob",
+        )
+        result = modes._try_load_from_keyring("myapp", None, True)
+        assert result is None
 
     def test_none_when_missing(self, mocker: MockerFixture) -> None:
         mocker.patch("kleys.modes.kr.lookup", return_value=None)
@@ -256,6 +257,62 @@ class TestInteractivePromptAndStore:
             modes._interactive_prompt_and_store("myapp", None, False)
 
 
+class TestStoreContent:
+    def test_encrypted_stores_encrypted(self, mocker: MockerFixture) -> None:
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        kr_store = mocker.patch("kleys.modes.kr.store")
+        modes.store_content("KEY=val\n", "myapp", None, False)
+        kr_store.assert_called_once_with("myapp", "encrypted")
+
+    def test_plaintext_stores_content(self, mocker: MockerFixture) -> None:
+        kr_store = mocker.patch("kleys.modes.kr.store")
+        modes.store_content("KEY=val\n", "myapp", None, True)
+        kr_store.assert_called_once_with("myapp", "KEY=val\n")
+
+    def test_no_password_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value=None)
+        with pytest.raises(SystemExit):
+            modes.store_content("KEY=val\n", "myapp", None, False)
+
+    def test_keyring_unavailable_plaintext_exits(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
+        with pytest.raises(SystemExit):
+            modes.store_content("KEY=val\n", "myapp", None, True)
+
+    def test_keyring_unavailable_encrypted_exits(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("kleys.modes.resolve_encrypt_password", return_value="pw")
+        mocker.patch("kleys.modes.crypto.encrypt", return_value="encrypted")
+        mocker.patch(
+            "kleys.modes.kr.store",
+            side_effect=KeyringUnavailableError,
+        )
+        with pytest.raises(SystemExit):
+            modes.store_content("KEY=val\n", "myapp", None, False)
+
+
+class TestPromptPasteContent:
+    def test_reads_lines(self, mocker: MockerFixture) -> None:
+        mocker.patch("builtins.input", side_effect=["A=1", "B=2", EOFError])
+        assert modes.prompt_paste_content() == "A=1\nB=2"
+
+    def test_empty_line_terminates(self, mocker: MockerFixture) -> None:
+        mocker.patch("builtins.input", side_effect=["A=1", ""])
+        assert modes.prompt_paste_content() == "A=1"
+
+    def test_empty_input_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch("builtins.input", side_effect=EOFError)
+        with pytest.raises(SystemExit):
+            modes.prompt_paste_content()
+
+
 class TestExecFile:
     def test_writes_to_file_path_and_runs(
         self, mocker: MockerFixture, tmp_path: Path
@@ -285,6 +342,17 @@ class TestExecFile:
         content = "CONTENT=val\n"
         result = modes._exec_file(["nonexistent"], content, str(secrets_path))
         assert result == 127
+
+
+class TestEnv:
+    def test_strips_secret_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("KLEYS_PASSWORD", "pw")
+        monkeypatch.setenv("KEYRING_PROPERTY_APPID", "kleys")
+        monkeypatch.setenv("KEEP_ME", "value")
+        env = modes._env()
+        assert "KLEYS_PASSWORD" not in env
+        assert "KEYRING_PROPERTY_APPID" not in env
+        assert env["KEEP_ME"] == "value"
 
 
 class TestExecSource:
@@ -615,9 +683,7 @@ class TestDispatch:
         file.write_text("LOCAL=from_dotenv\n")
         mocker.patch(
             "kleys.modes.kr.lookup",
-            side_effect=lambda s: (
-                "encrypted-blob" if s == "testapp-encrypted" else None
-            ),
+            return_value="kleys-enc:v1:encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
         mocker.patch(
@@ -650,9 +716,7 @@ class TestDispatch:
         file.write_text("LOCAL=from_dotenv\n")
         mocker.patch(
             "kleys.modes.kr.lookup",
-            side_effect=lambda s: (
-                "encrypted-blob" if s == "testapp-encrypted" else None
-            ),
+            return_value="kleys-enc:v1:encrypted-blob",
         )
         mocker.patch("kleys.modes.resolve_decrypt_password", return_value="pw")
         mocker.patch(

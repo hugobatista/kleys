@@ -26,7 +26,7 @@ python app.py
 Do this (secrets from keyring):
 ```bash
 # ✅ Secure: secrets loaded from keyring, never persisted to disk
-kleys python app.py
+kleys -- python app.py
 ```
 
 **Under the hood:** kleys retrieves your secrets from the system keyring and passes them to your command — no permanent `.env` files on disk. It has three modes: **file mode** (default) writes a temp `.env` with secure permissions and deletes it after; **file descriptor mode** (`@SECRETS@`) passes secrets via an in-memory FD with zero disk writes; **export mode** (`--export`) exports secrets as real environment variables without writing any file.
@@ -46,9 +46,9 @@ kleys python app.py
 **4. LLM data exposure.** AI coding agents with filesystem access can read `.env` files and act on credentials — even with safety instructions in place. And secrets included in LLM prompts may be retained in training data or exposed through breaches. No file on disk means nothing for agents to find and nothing to leak through a prompt.
 
 ```bash
-kleys --export ansible-playbook site.yml    # no file = no malware, no git risk
-kleys --export ./deploy.sh                   # no subprocess = no ps leaks
-kleys --export npm run dev                   # all four, every time
+kleys --export -- ansible-playbook site.yml  # no file = no malware, no git risk
+kleys --export -- ./deploy.sh                # no subprocess = no ps leaks
+kleys --export -- npm run dev                # all four, every time
 ```
 
 ## Prerequisites
@@ -91,19 +91,24 @@ kleys also runs on Docker — see [Docker Guide](docs/DOCKER.md) for standalone 
 ## Usage
 
 ```bash
-kleys [OPTIONS] COMMAND [ARGS...]
-kleys show [--key KEY] [--password PASSWORD]
+kleys [OPTIONS] -- COMMAND [ARGS...]
+kleys store [--key KEY] [--secrets-file FILE]
+kleys lookup [--key KEY] [--password PASSWORD]
 kleys clear [--key KEY]
 ```
+
+Both forms are accepted: `kleys [OPTIONS] COMMAND [ARGS...]` and
+`kleys [OPTIONS] -- COMMAND [ARGS...]`.
 
 ### Subcommands
 
 | Subcommand | Aliases | Description |
 |------------|---------|-------------|
 | `run` | — | Execute a command with secrets from the keyring (default when no subcommand given) |
-| `show` | `list` | Display all stored secrets for a key |
-
+| `store` | `add` | Store secrets for a key without running a command |
+| `lookup` | `show`, `list` | Display all stored secrets for a key |
 | `clear` | `delete`, `rm` | Delete all stored secrets for a key |
+
 ### Run Options
 
 | Option | Description |
@@ -114,7 +119,16 @@ kleys clear [--key KEY]
 | `--password PASSWORD` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
 | `--unencrypted`, `-u` | Disable encryption, store/retrieve secrets as plaintext (default: encryption enabled). |
 
-### Show / Clear Options
+### Store Options
+
+| Option | Description |
+|--------|-------------|
+| `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
+| `--secrets-file FILE`, `-f FILE` | Path to read secrets from (default: `.env`). kleys asks for confirmation before importing a file, and removes it after storing. If no file is found, kleys prompts for pasted input. |
+| `--password PASSWORD` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
+| `--unencrypted`, `-u` | Disable encryption, store secrets as plaintext (default: encryption enabled). |
+
+### Lookup / Clear Options
 
 | Option | Description |
 |--------|-------------|
@@ -148,7 +162,7 @@ For detailed data flow and how secrets traverse each mode, see [Architecture](do
 ### Example 1: Python development with uv
 
 ```bash
-kleys uv run pywrangler dev
+kleys -- uv run pywrangler dev
 ```
 
 **What happens:**
@@ -160,7 +174,7 @@ kleys uv run pywrangler dev
 ### Example 2: Python project with hatch
 
 ```bash
-kleys hatch run dev
+kleys -- hatch run dev
 ```
 
 Perfect for running development servers where you need environment variables but don't want them persisted on disk.
@@ -168,7 +182,7 @@ Perfect for running development servers where you need environment variables but
 ### Example 3: Ansible playbook with environment variables
 
 ```bash
-kleys --export ansible-playbook site.yml
+kleys --export -- ansible-playbook site.yml
 ```
 
 **Before kleys:**
@@ -187,7 +201,7 @@ Useful for any tool that expects secrets as environment variables — Ansible, T
 ### Example 4: GitHub Actions local testing with act
 
 ```bash
-kleys --secrets-file .secrets act --secret-file .secrets
+kleys --secrets-file .secrets -- act --secret-file .secrets
 ```
 
 **What happens:**
@@ -202,10 +216,10 @@ This is especially useful for testing GitHub Actions workflows locally while kee
 
 ```bash
 # Development environment
-kleys --key myproject-dev npm start
+kleys --key myproject-dev -- npm start
 
 # Production environment
-kleys --key myproject-prod npm start
+kleys --key myproject-prod -- npm start
 ```
 
 Each `--key` name is a separate keyring entry, allowing you to manage different secret sets (dev, staging, prod) for the same project.
@@ -213,7 +227,7 @@ Each `--key` name is a separate keyring entry, allowing you to manage different 
 ### Example 6: Docker commands
 
 ```bash
-kleys docker-compose up
+kleys -- docker-compose up
 ```
 
 Great for docker-compose files that source `.env` for configuration.
@@ -222,10 +236,10 @@ Great for docker-compose files that source `.env` for configuration.
 
 ```bash
 # File mode: SECRETS_FILE points to the temp file
-kleys bash -c 'echo "Secrets file: $SECRETS_FILE"'
+kleys -- bash -c 'echo "Secrets file: $SECRETS_FILE"'
 
 # FD mode: SECRETS_FILE points to the file descriptor
-kleys bash -c 'echo "Secrets FD: $SECRETS_FILE"' --secret-file @SECRETS@
+kleys -- bash -c 'echo "Secrets FD: $SECRETS_FILE"' --secret-file @SECRETS@
 ```
 
 The `SECRETS_FILE` environment variable is set in both file and FD modes.
@@ -235,7 +249,7 @@ The `SECRETS_FILE` environment variable is set in both file and FD modes.
 > **Note:** FD mode (`@SECRETS@`) is Unix/macOS only — not supported on Windows. Use `--export` or `--secrets-file` on Windows instead.
 
 ```bash
-kleys act --secret-file @SECRETS@
+kleys -- act --secret-file @SECRETS@
 ```
 
 **What happens:**
@@ -259,28 +273,39 @@ kleys act --secret-file @SECRETS@
 ### Example 9: Docker with file descriptor mode
 
 ```bash
-kleys docker run --env-file @SECRETS@ myimage
+kleys -- docker run --env-file @SECRETS@ myimage
 ```
 
 Secrets are loaded from keyring and passed to Docker without ever touching the disk. The `@SECRETS@` token automatically enables zero-disk-I/O mode.
 
-### Example 10: View stored secrets
+### Example 10: Store secrets without running a command
 
 ```bash
-kleys show
-kleys show --key myproject
+kleys store                 # stores pasted input, or offers to import .env if present
+kleys store --key myproject # same, for a specific key
+kleys store -f .secrets     # reads .secrets and stores it
 ```
 
-Displays all secrets stored for the current (or specified) app. Decrypts automatically when needed.
+Stores secrets for the key and exits. When reading from a file, kleys asks for
+confirmation and removes the source file after storing.
 
-### Example 11: Delete stored secrets
+### Example 11: View stored secrets
+
+```bash
+kleys lookup
+kleys lookup --key myproject
+```
+
+Prints the secrets content to stdout (no header). Decrypts automatically when needed.
+
+### Example 12: Delete stored secrets
 
 ```bash
 kleys clear
 kleys clear --key myproject
 ```
 
-Deletes all secrets (both encrypted and plaintext) for the app. Useful for resetting or rotating credentials.
+Deletes all secrets for the app. Useful for resetting or rotating credentials.
 
 ## Advanced Features
 
@@ -288,10 +313,10 @@ Deletes all secrets (both encrypted and plaintext) for the app. Useful for reset
 
 ```bash
 # Use a different file name
-kleys --secrets-file .env.production npm run build
+kleys --secrets-file .env.production -- npm run build
 
 # Use a path in a different directory
-kleys --secrets-file /tmp/my-secrets ./deploy.sh
+kleys --secrets-file /tmp/my-secrets -- ./deploy.sh
 ```
 
 ### SECRETS_FILE Environment Variable
@@ -300,9 +325,9 @@ In **file mode** and **FD mode**, your command receives `SECRETS_FILE` pointing 
 
 ```bash
 # File mode: points to temp .env
-kleys bash -c 'echo "Secrets are at: $SECRETS_FILE"'
+kleys -- bash -c 'echo "Secrets are at: $SECRETS_FILE"'
 # FD mode: points to /dev/fd/9
-kleys bash -c 'echo "Secrets are at: $SECRETS_FILE"' --secret-file @SECRETS@
+kleys -- bash -c 'echo "Secrets are at: $SECRETS_FILE"' --secret-file @SECRETS@
 ```
 
 In **export mode** (`--export`), `SECRETS_FILE` is not set — the secrets are already in the environment.
@@ -314,7 +339,7 @@ In **export mode** (`--export`), `SECRETS_FILE` is not set — the secrets are a
 For maximum security, use the `@SECRETS@` token in your command to pass secrets via file descriptor without writing to disk:
 
 ```bash
-kleys act --secret-file @SECRETS@
+kleys -- act --secret-file @SECRETS@
 ```
 
 **How it works:**
@@ -337,13 +362,13 @@ kleys act --secret-file @SECRETS@
 
 ✅ **Works with these tools:**
 ```bash
-kleys act --secret-file @SECRETS@
-kleys docker run --env-file @SECRETS@ image
+kleys -- act --secret-file @SECRETS@
+kleys -- docker run --env-file @SECRETS@ image
 ```
 
 Replaced tokens work just like file paths:
 ```bash
-kleys mycommand --config @SECRETS@ --output results.txt
+kleys -- mycommand --config @SECRETS@ --output results.txt
 # All @SECRETS@ tokens are replaced with /dev/fd/9
 ```
 
@@ -352,7 +377,7 @@ kleys mycommand --config @SECRETS@ --output results.txt
 For tools that expect secrets as actual environment variables (like Ansible, shell scripts, or tools that call `os.getenv`), use the `--export` flag:
 
 ```bash
-kleys --export ansible-playbook site.yml
+kleys --export -- ansible-playbook site.yml
 ```
 
 **How it works:**
@@ -366,9 +391,9 @@ kleys --export ansible-playbook site.yml
 
 | Tool | Without --export | With --export |
 |------|-----------------|---------------|
-| Ansible | `source .env && ansible-playbook ...` | `kleys --export ansible-playbook ...` |
-| Terraform | `source .env && terraform plan` | `kleys --export terraform plan` |
-| Shell scripts | `source .env && ./deploy.sh` | `kleys --export ./deploy.sh` |
+| Ansible | `source .env && ansible-playbook ...` | `kleys --export -- ansible-playbook ...` |
+| Terraform | `source .env && terraform plan` | `kleys --export -- terraform plan` |
+| Shell scripts | `source .env && ./deploy.sh` | `kleys --export -- ./deploy.sh` |
 | Any `os.getenv`/`$VAR` consumer | needs vars in environment | vars are exported automatically |
 
 **Key difference:** without `--export`, secrets are written to a temp file and `SECRETS_FILE` env var is set.
@@ -376,7 +401,7 @@ With `--export`, secrets are loaded directly into memory — no temp file, no `S
 
 **Combined with `@SECRETS@`:**
 ```bash
-kleys --export ansible-playbook --vault-password-file @SECRETS@ site.yml
+kleys --export -- ansible-playbook --vault-password-file @SECRETS@ site.yml
 ```
 This both exports secrets into the environment AND passes one via file descriptor — maximum flexibility with zero disk writes.
 
@@ -386,22 +411,22 @@ Encryption is **enabled by default**. All secrets are encrypted with Fernet (AES
 
 ```bash
 # Default: prompts for password (with confirmation) on first use
-kleys npm start
+kleys -- npm start
 
 # Password from environment variable
-KLEYS_PASSWORD=hunter2 kleys npm start
+KLEYS_PASSWORD=hunter2 kleys -- npm start
 
 # Explicit password (visible in ps — use with care)
-kleys --password hunter2 npm start
+kleys --password hunter2 -- npm start
 
 # Opt out of encryption
-kleys --unencrypted npm start
+kleys --unencrypted -- npm start
 ```
 
 **How it works:**
 
-1. Encrypted entries are stored under a separate keyring key: `app_name-encrypted` (distinct from the plaintext key `app_name`).
-2. On lookup, the tool tries the encrypted key first. If found, it resolves the password and decrypts.
+1. Each app has a single keyring entry (`kleys:{key}`, username `secrets`). Encrypted entries are detected by a `kleys-enc:v1:` marker in the stored payload; plaintext entries have no marker.
+2. On lookup, kleys reads the entry and decrypts it when the marker is present.
 3. On first run (no existing entry), you'll be prompted for a password (with confirmation) unless `KLEYS_PASSWORD` or `--password VALUE` is set.
 4. Existing plaintext entries remain readable with a warning: `ℹ Found plaintext entry — not encrypted`. New entries will be encrypted.
 5. Use `--unencrypted` to disable encryption entirely (e.g., for CI/CD scripts that can't provide a password).
@@ -425,9 +450,9 @@ kleys --unencrypted npm start
 **CI/CD note:** If you run `kleys` in automation without a password, you must add `--unencrypted` or set `KLEYS_PASSWORD`:
 ```bash
 # After (encryption is default — choose one):
-kleys --unencrypted deploy.sh
+kleys --unencrypted -- deploy.sh
 # OR
-KLEYS_PASSWORD=$(cat /etc/secret.txt) kleys deploy.sh
+KLEYS_PASSWORD=$(cat /etc/secret.txt) kleys -- deploy.sh
 ```
 
 ### First-Run Setup
@@ -441,6 +466,36 @@ On first use (when secrets aren't in keyring):
 5. Press `Ctrl-D` (Unix) / `Ctrl-Z + Enter` (Windows) to finish (or `Ctrl-C` to cancel)
 6. Secrets are encrypted and stored in system keyring
 7. Future runs load automatically
+
+## Migrating from v0.1.x (breaking change in v0.2.0)
+
+> **Before migrating, make sure you have copies of your secrets.** The only way to
+> read v0.1.x entries is with kleys v0.1.x (`kleys show --key <app>`). After
+> upgrading to v0.2.0, those entries are unreadable.
+
+**v0.2.0 changed the keyring entry format.** Each app now uses a single entry with
+`service` = `kleys:{key}` and `username` = `secrets`. Encrypted payloads carry a
+`kleys-enc:v1:` marker.
+
+Entries stored by v0.1.x — `service` = `{key}` or `{key}-encrypted` with
+`username` = `__secrets__` — are **no longer read** by kleys. They remain in your
+keyring as orphaned entries.
+
+To migrate:
+
+1. Re-store each key: run `kleys run` again (or `kleys store`). Since the lookup
+   finds nothing, kleys offers to import the local `.env` or prompts for pasted
+   input. The encryption password remains valid — the ciphertext format is unchanged.
+2. (Optional) Remove the orphaned entries. In the Seahorse GUI, or with
+   `secret-tool`:
+
+   ```bash
+   # List orphaned entries
+   secret-tool search --all application "Python keyring library"
+
+   # Delete one app's orphaned entry
+   secret-tool clear application "Python keyring library" service <app>
+   ```
 
 ## Security Notes
 
@@ -494,10 +549,10 @@ The command may require a regular file instead of a file descriptor. Try without
 
 ```bash
 # If this fails:
-kleys mycommand --file @SECRETS@
+kleys -- mycommand --file @SECRETS@
 
 # Try this instead:
-kleys mycommand
+kleys -- mycommand
 ```
 
 ### "No secrets found" on every run
@@ -505,7 +560,7 @@ kleys mycommand
 The keyring store may have failed silently. Run with `--unencrypted` and `--export` to trigger a fresh prompt:
 
 ```bash
-kleys --unencrypted --export your-command
+kleys --unencrypted --export -- your-command
 ```
 
 ### Command fails but secrets file remains

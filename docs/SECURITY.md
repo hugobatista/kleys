@@ -38,7 +38,7 @@ This document details the threat model, encryption design, and security trade-of
 export $(cat .env | xargs)  # → "cat", "xargs", "echo" see secrets
 
 # ✅ Secure: no intermediate processes
-kleys --export mycommand    # → secrets go directly to subprocess env
+kleys --export -- mycommand   # → secrets go directly to subprocess env
 ```
 
 ### 4. LLM Data Exposure
@@ -70,10 +70,9 @@ Your User Session
 │   └── secretstorage library
 │       └── D-Bus GetSecret() calls → D-Bus daemon responses
 └── Keyring daemon (gnome-keyring, kwallet, etc.)
-    ├── {app-name} entry
-    │   └── plaintext (if --unencrypted used)
-    └── {app-name}-encrypted entry
-        └── Fernet ciphertext + salt
+    └── kleys:{app-name} entry (username "secrets")
+        └── kleys-enc:v1: marker + Fernet ciphertext + salt   (encrypted)
+        └── plaintext .env content                             (if --unencrypted used)
 ```
 
 ### Without Encryption (`--unencrypted`)
@@ -99,7 +98,7 @@ bus = secretstorage.dbus_init()
 col = secretstorage.get_default_collection(bus)
 for item in col.get_all_items():
     secret = item.get_secret().decode()
-    # secret = "base64_salt:base64_encrypted_token"
+    # secret = "kleys-enc:v1:base64_salt:base64_encrypted_token"
     # Useless without the decryption password
     print(f"Found ciphertext: {secret}")
 ```
@@ -149,14 +148,14 @@ plaintext + password
   │   └─ AES-128-CBC (first 16 bytes of key)
   │   └─ HMAC-SHA256 (next 16 bytes of key) for authentication
   │
-  └─ return: base64(salt) + ":" + base64_urlsafe(token)
+  └─ return: "kleys-enc:v1:" + base64(salt) + ":" + base64_urlsafe(token)
 ```
 
-**Stored in keyring:** `salt:encrypted_token`
+**Stored in keyring:** `kleys-enc:v1:salt:encrypted_token`
 
 **Example:**
 ```
-WEk7r2pV+Z4=:gAAAAABlmfvV8X...  (URL-safe base64)
+kleys-enc:v1:WEk7r2pV+Z4=:gAAAAABlmfvV8X...  (URL-safe base64)
 ```
 
 ### Decryption
@@ -240,14 +239,14 @@ Which kleys feature protects against which threat:
 
 ```bash
 # First run: prompts for password, stores encrypted
-kleys npm start
+kleys -- npm start
 
 # Password saved implicitly in memory during session
 # Subsequent runs: prompts again (or reads KLEYS_PASSWORD)
-kleys npm start  # → asks for password
+kleys -- npm start  # → asks for password
 ```
 
-Entries stored as `{app}-encrypted` in keyring.
+Entries stored as `kleys:{app}` (username `secrets`) in keyring.
 
 ### CI/CD Configuration
 
@@ -255,10 +254,10 @@ In automation, provide password via environment or use `--unencrypted`:
 
 ```bash
 # Via environment variable
-KLEYS_PASSWORD=$(cat /etc/secrets/kleys-pw) kleys deploy.sh
+KLEYS_PASSWORD=$(cat /etc/secrets/kleys-pw) kleys -- deploy.sh
 
 # Or disable encryption (if in isolated CI container)
-kleys --unencrypted deploy.sh
+kleys --unencrypted -- deploy.sh
 ```
 
 **Recommendation:** Always use `KLEYS_PASSWORD` in CI/CD to maintain encryption end-to-end.
@@ -267,9 +266,8 @@ kleys --unencrypted deploy.sh
 
 ```bash
 # Disable encryption (plaintext in keyring)
-kleys --unencrypted npm start
+kleys --unencrypted -- npm start
 
-# Entry stored as `{app}` (not `{app}-encrypted`)
 # Readable by any D-Bus client
 ```
 
