@@ -12,10 +12,16 @@ uv run hatch run validate  # lint → format-check → test → typecheck
 
 `kleys.cli:main` → manual arg parsing → subcommand dispatcher.
 
-Three subcommands:
+Four subcommands:
 - **run** — execute a command with secrets (file/source/FD modes)
-- **show** — display all stored secrets for an app
-- **clear** — delete all stored secrets for an app
+- **store** (alias: add) — store secrets for a key without running a command
+- **lookup** (aliases: show, list) — display all stored secrets for an app
+- **clear** (aliases: delete, rm) — delete all stored secrets for an app
+
+Keyring entries use service `kleys:{app}`, username `secrets`. Encrypted payloads
+carry a `kleys-enc:v1:` marker; `crypto.is_encrypted()` detects it. When running a
+command, prefer the `kleys [OPTIONS] -- COMMAND` form (options before the command,
+`--` separates them).
 
 CLI parsing is manual (not Typer decorators). Typer used only for `prompt`/`secho`.
 

@@ -37,98 +37,40 @@ def _parse_env(content: str) -> dict[str, str]:
     return env
 
 
-def _offer_store_file(
-    file: str, app_name: str, password: str | None, plaintext_mode: bool
-) -> bool:
-    console.info(f"\u2139 Found existing local file: {file}")
+def store_content(
+    content: str,
+    app_name: str,
+    password: str | None,
+    plaintext_mode: bool,
+) -> None:
     try:
-        answer = typer.prompt(
-            f"Store this file in the keyring for key='{app_name}'? (y/n)"
-        )
-    except typer.Abort:
-        return False
-    else:
-        typer.echo("")
-    if not answer.lower().startswith("y"):
-        return False
-    with open(file) as f:
-        content = f.read()
-    if plaintext_mode:
-        try:
+        if plaintext_mode:
             kr.store(app_name, content)
-        except KeyringUnavailableError:
-            console.error(
-                "Error: No keyring backend is available. Kleys requires a"
-                f" system keyring to operate.\n{keyring_install_hint()}"
-            )
-            sys.exit(1)
+        else:
+            pw = resolve_encrypt_password(password)
+            if pw is None:
+                console.error(
+                    "Error: No password available for encryption."
+                    " Use --unencrypted, KLEYS_PASSWORD, or"
+                    " --password PASSWORD."
+                )
+                sys.exit(1)
+            kr.store(app_name, crypto.encrypt(content, pw))
+    except KeyringUnavailableError:
+        console.error(
+            "Error: No keyring backend is available. Kleys requires a"
+            f" system keyring to operate.\n{keyring_install_hint()}"
+        )
+        sys.exit(1)
+    if plaintext_mode:
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (not encrypted)"
         )
     else:
-        pw = resolve_encrypt_password(password)
-        if pw is None:
-            console.error(
-                "Error: No password available for encryption."
-                " Use --unencrypted, KLEYS_PASSWORD, or"
-                " --password PASSWORD."
-            )
-            sys.exit(1)
-        encrypted = crypto.encrypt(content, pw)
-        try:
-            kr.store(f"{app_name}-encrypted", encrypted)
-        except KeyringUnavailableError:
-            console.error(
-                "Error: No keyring backend is available. Kleys requires a"
-                f" system keyring to operate.\n{keyring_install_hint()}"
-            )
-            sys.exit(1)
         console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
-    return True
 
 
-def _try_load_from_keyring(
-    app_name: str,
-    password: str | None,
-    plaintext_mode: bool,
-) -> str | None:
-    encrypted_key = f"{app_name}-encrypted"
-    if not plaintext_mode:
-        encrypted_content = kr.lookup(encrypted_key)
-        if encrypted_content is not None:
-            pw = resolve_decrypt_password(password)
-            if pw is None:
-                console.error(
-                    "Error: Encrypted entry found but no password"
-                    " available. Use --password PASSWORD or set"
-                    " KLEYS_PASSWORD."
-                )
-                sys.exit(1)
-            decrypted = crypto.decrypt(encrypted_content, pw)
-            if decrypted is None:
-                console.error(
-                    "Error: Decryption failed. Wrong password or"
-                    " corrupted data."
-                )
-                sys.exit(1)
-            return decrypted
-    plain_content = kr.lookup(app_name)
-    if plain_content is not None:
-        if not plaintext_mode:
-            console.info(
-                f"\u2139 Found plaintext entry for key="
-                f"'{app_name}' \u2014 unencrypted"
-            )
-        return plain_content
-    return None
-
-
-def _interactive_prompt_and_store(
-    app_name: str,
-    password: str | None,
-    plaintext_mode: bool,
-) -> str:
-    console.warn(f"\u26a0 No secrets found for key='{app_name}' in keyring.")
+def prompt_paste_content() -> str:
     console.info(
         "Paste secrets content (KEY=VALUE), then press"
         " Ctrl-D (Unix) / Ctrl-Z+Enter (Windows),"
@@ -148,38 +90,72 @@ def _interactive_prompt_and_store(
     if not secrets_input:
         console.error("Error: No secrets provided. Aborting.")
         sys.exit(1)
-    if plaintext_mode:
-        try:
-            kr.store(app_name, secrets_input)
-        except KeyringUnavailableError:
-            console.error(
-                "Error: No keyring backend is available. Kleys requires a"
-                f" system keyring to operate.\n{keyring_install_hint()}"
-            )
-            sys.exit(1)
-        console.success(
-            f"\u2713 Stored in keyring as '{app_name}' (not encrypted)"
+    return secrets_input
+
+
+def _offer_store_file(
+    file: str, app_name: str, password: str | None, plaintext_mode: bool
+) -> bool:
+    console.info(f"\u2139 Found existing local file: {file}")
+    try:
+        answer = typer.prompt(
+            f"Store this file in the keyring for key='{app_name}'? (y/n)"
         )
+    except typer.Abort:
+        return False
     else:
-        pw = resolve_encrypt_password(password)
+        typer.echo("")
+    if not answer.lower().startswith("y"):
+        return False
+    with open(file) as f:
+        content = f.read()
+    store_content(content, app_name, password, plaintext_mode)
+    return True
+
+
+def _try_load_from_keyring(
+    app_name: str,
+    password: str | None,
+    plaintext_mode: bool,
+) -> str | None:
+    payload = kr.lookup(app_name)
+    if payload is None:
+        return None
+    if crypto.is_encrypted(payload):
+        if plaintext_mode:
+            return None
+        pw = resolve_decrypt_password(password)
         if pw is None:
             console.error(
-                "Error: No password available for encryption."
-                " Use --unencrypted, KLEYS_PASSWORD, or"
-                " --password PASSWORD."
+                "Error: Encrypted entry found but no password"
+                " available. Use --password PASSWORD or set"
+                " KLEYS_PASSWORD."
             )
             sys.exit(1)
-        encrypted = crypto.encrypt(secrets_input, pw)
-        try:
-            kr.store(f"{app_name}-encrypted", encrypted)
-        except KeyringUnavailableError:
+        decrypted = crypto.decrypt(payload, pw)
+        if decrypted is None:
             console.error(
-                "Error: No keyring backend is available. Kleys requires a"
-                f" system keyring to operate.\n{keyring_install_hint()}"
+                "Error: Decryption failed. Wrong password or corrupted data."
             )
             sys.exit(1)
-        console.success(f"\u2713 Stored in keyring as '{app_name}' (encrypted)")
-    return secrets_input
+        return decrypted
+    if not plaintext_mode:
+        console.info(
+            f"\u2139 Found plaintext entry for key="
+            f"'{app_name}' \u2014 unencrypted"
+        )
+    return payload
+
+
+def _interactive_prompt_and_store(
+    app_name: str,
+    password: str | None,
+    plaintext_mode: bool,
+) -> str:
+    console.warn(f"\u26a0 No secrets found for key='{app_name}' in keyring.")
+    content = prompt_paste_content()
+    store_content(content, app_name, password, plaintext_mode)
+    return content
 
 
 def _warn_overwrite(file: str) -> None:

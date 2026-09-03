@@ -24,10 +24,10 @@ class TestKeyringInstallHint:
 
 
 class TestStore:
-    def test_stores_with_fixed_user(self, mocker: MockerFixture) -> None:
+    def test_stores_with_fixed_username(self, mocker: MockerFixture) -> None:
         kr.store("myapp", "secret-content")
         keyring.set_password.assert_called_once_with(
-            "myapp", "__secrets__", "secret-content"
+            "kleys:myapp", "secrets", "secret-content"
         )
 
     def test_raises_keyring_unavailable_on_error(
@@ -43,7 +43,7 @@ class TestLookup:
         keyring.get_password.return_value = "found-secret"
         result = kr.lookup("myapp")
         assert result == "found-secret"
-        keyring.get_password.assert_called_once_with("myapp", "__secrets__")
+        keyring.get_password.assert_called_once_with("kleys:myapp", "secrets")
 
     def test_returns_none_when_missing(self) -> None:
         keyring.get_password.return_value = None
@@ -61,7 +61,9 @@ class TestDelete:
         keyring.delete_password.return_value = True
         result = kr.delete("myapp")
         assert result is True
-        keyring.delete_password.assert_called_once_with("myapp", "__secrets__")
+        keyring.delete_password.assert_called_once_with(
+            "kleys:myapp", "secrets"
+        )
 
     def test_returns_false_on_delete_error(self, mocker: MockerFixture) -> None:
         keyring.delete_password.side_effect = (

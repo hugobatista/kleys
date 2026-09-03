@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 SALT_LENGTH = 16
 KEY_LENGTH = 32
 ITERATIONS = 600_000
+_MARKER = "kleys-enc:v1:"
 
 
 def _derive_key(password: str, salt: bytes) -> bytes:
@@ -26,11 +27,17 @@ def encrypt(plaintext: str, password: str) -> str:
     f = Fernet(base64.urlsafe_b64encode(key))
     token = f.encrypt(plaintext.encode("utf-8"))
     salt_b64 = base64.b64encode(salt).decode("ascii")
-    return salt_b64 + ":" + token.decode("ascii")
+    return f"{_MARKER}{salt_b64}:{token.decode('ascii')}"
+
+
+def is_encrypted(payload: str) -> bool:
+    return payload.startswith(_MARKER)
 
 
 def decrypt(payload: str, password: str) -> str | None:
     try:
+        if is_encrypted(payload):
+            payload = payload[len(_MARKER) :]
         salt_b64, token = payload.split(":", 1)
         salt = base64.b64decode(salt_b64)
         key = _derive_key(password, salt)

@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Any
 
@@ -8,17 +9,19 @@ from kleys.modes import resolve_app_name
 from kleys.password import resolve_decrypt_password
 
 _TOP_HELP = """\
-Usage: kleys [OPTIONS] COMMAND [ARGS...]
+Usage: kleys [OPTIONS] -- COMMAND [ARGS...]
 
   Execute commands with secrets loaded from your system keyring.
+  Use '--' to separate kleys options from the command to execute.
 
 Commands:
   run                   Execute a command with secrets from the keyring
-  show, list            Display all stored secrets for a key
+  store, add            Store secrets for a key in the keyring
+  lookup, list, show    Display all stored secrets for a key
   clear, delete, rm     Delete all stored secrets for a key
 
 Use 'kleys run --help' for run options.
-Use 'kleys show --help' for show options.
+Use 'kleys lookup --help' for lookup options.
 Use 'kleys clear --help' for clear options.
 """
 
@@ -85,20 +88,44 @@ Examples:
   kleys run --key myproject-prod npm start
 """
 
-_SHOW_HELP = """\
-Usage: kleys show [OPTIONS]
+_LOOKUP_HELP = """\
+Usage: kleys lookup [OPTIONS]
 
   Display all stored secrets for a key.
 
   Loads secrets from the system keyring for the given key and prints
   them to stdout. Tries encrypted entry first, falls back to plaintext.
 
-Aliases: list
+Aliases: show, list
 
 Options:
   --key KEY, -k KEY       Keyring entry identifier
                           (default: current folder name)
   --password PASSWORD     Decryption password (required if encrypted)
+  --help, -h              Show this help message
+"""
+
+_STORE_HELP = """\
+Usage: kleys store [OPTIONS]
+
+  Store secrets for a key in the keyring without running a command.
+
+  Reads secrets from --secrets-file, from the default .env file, or from
+  pasted input, stores them for the given key and exits. The source
+  file is removed after storing, matching the 'run' command.
+
+Aliases: add
+
+Options:
+  --key KEY, -k KEY       Keyring entry identifier
+                          (default: current folder name)
+  --secrets-file FILE, -f FILE
+                          Path to read secrets from (default: .env)
+  --password PASSWORD     Encrypt secrets with a password (Fernet/AES-128-CBC).
+                          If PASSWORD is omitted, resolves from
+                          KLEYS_PASSWORD env var or prompts.
+  --unencrypted, -u       Disable encryption, store secrets as plaintext
+                          (default: encryption is enabled).
   --help, -h              Show this help message
 """
 
@@ -176,7 +203,7 @@ def _parse_options(args: list[str]) -> tuple[dict[str, Any], list[str]]:
     return opts, args[i:]
 
 
-def _parse_show_options(args: list[str]) -> dict[str, Any]:
+def _parse_lookup_options(args: list[str]) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "app_name": None,
         "password": None,
@@ -185,7 +212,7 @@ def _parse_show_options(args: list[str]) -> dict[str, Any]:
     while i < len(args):
         a = args[i]
         if a in ("--help", "-h"):
-            sys.stdout.write(_SHOW_HELP)
+            sys.stdout.write(_LOOKUP_HELP)
             sys.exit(0)
         elif r := _consume_opt_val(args, i, "--key", "-k"):
             opts["app_name"], i = r
@@ -220,6 +247,35 @@ def _parse_clear_options(args: list[str]) -> dict[str, Any]:
     return opts
 
 
+def _parse_store_options(args: list[str]) -> dict[str, Any]:
+    opts: dict[str, Any] = {
+        "app_name": None,
+        "password": None,
+        "plaintext_mode": False,
+        "file": None,
+    }
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("--help", "-h"):
+            sys.stdout.write(_STORE_HELP)
+            sys.exit(0)
+        elif r := _consume_opt_val(args, i, "--key", "-k"):
+            opts["app_name"], i = r
+        elif r := _consume_opt_val(args, i, "--secrets-file", "-f"):
+            opts["file"], i = r
+        elif r := _consume_opt_val(args, i, "--password"):
+            warn(_PASSWORD_WARNING)
+            opts["password"], i = r
+        elif a in ("--unencrypted", "-u"):
+            opts["plaintext_mode"] = True
+            i += 1
+        else:
+            error(f"error: unknown option {a!r}")
+            sys.exit(1)
+    return opts
+
+
 def _handle_run(args: list[str]) -> None:
     opts, command = _parse_options(args)
     opts["app_name"] = resolve_app_name(opts["app_name"])
@@ -227,13 +283,16 @@ def _handle_run(args: list[str]) -> None:
     modes.dispatch(**opts)
 
 
-def _handle_show(args: list[str]) -> None:
-    opts = _parse_show_options(args)
+def _handle_lookup(args: list[str]) -> None:
+    opts = _parse_lookup_options(args)
     app_name = resolve_app_name(opts["app_name"])
 
-    encrypted_key = f"{app_name}-encrypted"
-    encrypted_content = kr.lookup(encrypted_key)
-    if encrypted_content is not None:
+    payload = kr.lookup(app_name)
+    if payload is None:
+        warn(f"No secrets found for key='{app_name}' in keyring.")
+        sys.exit(1)
+
+    if crypto.is_encrypted(payload):
         password = resolve_decrypt_password(opts["password"])
         if password is None:
             error(
@@ -242,22 +301,39 @@ def _handle_show(args: list[str]) -> None:
                 " KLEYS_PASSWORD."
             )
             sys.exit(1)
-        secrets = crypto.decrypt(encrypted_content, password)
+        secrets = crypto.decrypt(payload, password)
         if secrets is None:
             error("Error: Decryption failed. Wrong password or corrupted data.")
             sys.exit(1)
-        info(f"Secrets for '{app_name}':")
         info(secrets)
-        return
+    else:
+        info(payload)
 
-    plain_content = kr.lookup(app_name)
-    if plain_content is not None:
-        info(f"Secrets for '{app_name}' (plaintext):")
-        info(plain_content)
-        return
 
-    warn(f"No secrets found for key='{app_name}' in keyring.")
-    sys.exit(1)
+def _handle_store(args: list[str]) -> None:
+    opts = _parse_store_options(args)
+    app_name = resolve_app_name(opts["app_name"])
+
+    if opts["file"] is not None:
+        source = opts["file"]
+        if not os.path.exists(source):
+            error(f"Error: File not found: {source}")
+            sys.exit(1)
+    else:
+        source = ".env"
+        if not os.path.exists(source):
+            content = modes.prompt_paste_content()
+            modes.store_content(
+                content, app_name, opts["password"], opts["plaintext_mode"]
+            )
+            return
+
+    with open(source) as f:
+        content = f.read()
+    modes.store_content(
+        content, app_name, opts["password"], opts["plaintext_mode"]
+    )
+    os.remove(source)
 
 
 def _handle_clear(args: list[str]) -> None:
@@ -286,15 +362,9 @@ def _handle_clear(args: list[str]) -> None:
             warn("Clear cancelled.")
             sys.exit(1)
 
-    deleted_any = False
-    if kr.delete(f"{app_name}-encrypted"):
-        success(f"Deleted encrypted secrets for '{app_name}'")
-        deleted_any = True
     if kr.delete(app_name):
-        success(f"Deleted plaintext secrets for '{app_name}'")
-        deleted_any = True
-
-    if not deleted_any:
+        success(f"Deleted secrets for '{app_name}'")
+    else:
         warn(f"No secrets found for key='{app_name}' in keyring.")
         sys.exit(1)
 
@@ -319,10 +389,12 @@ def main(argv: list[str] | None = None) -> None:
 
     if subcommand == "run":
         _handle_run(remaining)
-    elif subcommand in ("show", "list"):
-        _handle_show(remaining)
+    elif subcommand in ("lookup", "list", "show"):
+        _handle_lookup(remaining)
     elif subcommand in ("clear", "delete", "rm"):
         _handle_clear(remaining)
+    elif subcommand in ("store", "add"):
+        _handle_store(remaining)
     else:
         _handle_run(args)
 

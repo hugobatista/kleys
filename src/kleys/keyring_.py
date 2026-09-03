@@ -3,7 +3,8 @@ import sys
 import keyring as _keyring
 import keyring.errors
 
-_SERVICE_USER = "__secrets__"
+_SERVICE_PREFIX = "kleys:"
+_USERNAME = "secrets"
 
 
 class KeyringUnavailableError(RuntimeError):
@@ -17,9 +18,9 @@ def keyring_install_hint() -> str:
     return hint
 
 
-def store(service: str, secret: str) -> None:
+def store(app_name: str, secret: str) -> None:
     try:
-        _keyring.set_password(service, _SERVICE_USER, secret)
+        _keyring.set_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME, secret)
     except keyring.errors.KeyringError as exc:
         raise KeyringUnavailableError(
             "No keyring backend is available. Kleys requires a system"
@@ -27,16 +28,16 @@ def store(service: str, secret: str) -> None:
         ) from exc
 
 
-def lookup(service: str) -> str | None:
+def lookup(app_name: str) -> str | None:
     try:
-        return _keyring.get_password(service, _SERVICE_USER)
+        return _keyring.get_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME)
     except keyring.errors.KeyringError:
         return None
 
 
-def delete(service: str) -> bool:
+def delete(app_name: str) -> bool:
     try:
-        _keyring.delete_password(service, _SERVICE_USER)
+        _keyring.delete_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME)
         return True
     except keyring.errors.KeyringError:
         return False
