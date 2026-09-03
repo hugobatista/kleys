@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -243,7 +244,7 @@ class TestParseLookupOptions:
 
     def test_no_args_defaults(self) -> None:
         opts = cli._parse_lookup_options([])
-        assert opts == {"app_name": None, "password": None}
+        assert opts == {"app_name": None, "password": None, "json": False}
 
     def test_key_equals_syntax(self) -> None:
         opts = cli._parse_lookup_options(["--key=myapp"])
@@ -284,6 +285,15 @@ class TestParseLookupOptions:
     def test_password_missing_value(self) -> None:
         with pytest.raises(SystemExit):
             cli._parse_lookup_options(["--password"])
+
+    def test_json_flag(self) -> None:
+        opts = cli._parse_lookup_options(["--json"])
+        assert opts["json"] is True
+
+    def test_json_flag_with_key(self) -> None:
+        opts = cli._parse_lookup_options(["--key", "myapp", "--json"])
+        assert opts["app_name"] == "myapp"
+        assert opts["json"] is True
 
 
 class TestParseClearOptions:
@@ -400,6 +410,96 @@ class TestHandleLookup:
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
+
+    def test_json_plaintext_found(self, mocker: MockerFixture, capsys) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="API_KEY=abc\n# comment\nEMPTY=\n",
+        )
+
+        cli._handle_lookup(["--key", "myapp", "--json"])
+
+        out = capsys.readouterr().out
+        assert json.loads(out) == {"secrets": {"API_KEY": "abc", "EMPTY": ""}}
+
+    def test_json_encrypted_found_decrypts(
+        self, mocker: MockerFixture, capsys
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
+        mocker.patch(
+            "kleys.crypto.decrypt",
+            return_value="KEY=value\nSECRET=123",
+        )
+
+        cli._handle_lookup(["--key", "myapp", "--json", "--password", "pw"])
+
+        out = capsys.readouterr().out
+        assert json.loads(out) == {"secrets": {"KEY": "value", "SECRET": "123"}}
+
+    def test_json_password_from_env(
+        self, mocker: MockerFixture, capsys, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("KLEYS_PASSWORD", "envpw")
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
+        decrypt = mocker.patch("kleys.crypto.decrypt", return_value="KEY=value")
+        resolve = mocker.patch("kleys.cli.resolve_decrypt_password")
+
+        cli._handle_lookup(["--key", "myapp", "--json"])
+
+        decrypt.assert_called_once_with(mocker.ANY, "envpw")
+        resolve.assert_not_called()
+        out = capsys.readouterr().out
+        assert json.loads(out) == {"secrets": {"KEY": "value"}}
+
+    def test_json_no_secrets_exits(self, mocker: MockerFixture, capsys) -> None:
+        mocker.patch("kleys.keyring_.lookup", return_value=None)
+        mock_warn = mocker.patch("kleys.cli.warn")
+
+        with pytest.raises(SystemExit):
+            cli._handle_lookup(["--key", "myapp", "--json"])
+
+        mock_warn.assert_not_called()
+        out = capsys.readouterr().out
+        assert json.loads(out)["error"]["kind"] == "NO_SECRETS"
+
+    def test_json_encrypted_no_password_exits(
+        self, mocker: MockerFixture, capsys, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("KLEYS_PASSWORD", raising=False)
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
+
+        with pytest.raises(SystemExit):
+            cli._handle_lookup(["--key", "myapp", "--json"])
+
+        out = capsys.readouterr().out
+        assert json.loads(out)["error"]["kind"] == "NO_PASSWORD"
+
+    def test_json_decrypt_fails_exits(
+        self, mocker: MockerFixture, capsys, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("KLEYS_PASSWORD", raising=False)
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
+        mocker.patch("kleys.crypto.decrypt", return_value=None)
+
+        with pytest.raises(SystemExit):
+            cli._handle_lookup(
+                ["--key", "myapp", "--json", "--password", "wrong"]
+            )
+
+        out = capsys.readouterr().out
+        assert json.loads(out)["error"]["kind"] == "DECRYPT_FAILED"
 
 
 class TestHandleClear:

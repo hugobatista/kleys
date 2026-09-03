@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from typing import Any
@@ -102,6 +103,14 @@ Options:
   --key KEY, -k KEY       Keyring entry identifier
                           (default: current folder name)
   --password PASSWORD     Decryption password (required if encrypted)
+  --json                  Machine-readable output: {"secrets": {...}} on
+                          success, {"error": {"kind": ..., "message": ...}}
+                          on failure. Never prompts — the password is read
+                          from --password or KLEYS_PASSWORD only.
+                          The stored content is parsed as KEY=VALUE lines;
+                          blank lines, # comments and lines without '=' are
+                          skipped. Content not in KEY=VALUE format yields
+                          {"secrets": {}}.
   --help, -h              Show this help message
 """
 
@@ -208,7 +217,9 @@ def _parse_lookup_options(args: list[str]) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "app_name": None,
         "password": None,
+        "json": False,
     }
+    json_requested = "--json" in args
     i = 0
     while i < len(args):
         a = args[i]
@@ -218,8 +229,12 @@ def _parse_lookup_options(args: list[str]) -> dict[str, Any]:
         elif r := _consume_opt_val(args, i, "--key", "-k"):
             opts["app_name"], i = r
         elif r := _consume_opt_val(args, i, "--password"):
-            warn(_PASSWORD_WARNING)
+            if not json_requested:
+                warn(_PASSWORD_WARNING)
             opts["password"], i = r
+        elif a == "--json":
+            opts["json"] = True
+            i += 1
         else:
             error(f"error: unknown option {a!r}")
             sys.exit(1)
@@ -284,18 +299,45 @@ def _handle_run(args: list[str]) -> None:
     modes.dispatch(**opts)
 
 
+def _emit_lookup_json_secrets(content: str) -> None:
+    sys.stdout.write(json.dumps({"secrets": modes._parse_env(content)}))
+    sys.stdout.write("\n")
+
+
+def _emit_lookup_json_error(kind: str, message: str) -> None:
+    sys.stdout.write(json.dumps({"error": {"kind": kind, "message": message}}))
+    sys.stdout.write("\n")
+
+
 def _handle_lookup(args: list[str]) -> None:
     opts = _parse_lookup_options(args)
     app_name = resolve_app_name(opts["app_name"])
+    json_mode = opts["json"]
 
     payload = kr.lookup(app_name)
     if payload is None:
+        if json_mode:
+            _emit_lookup_json_error(
+                "NO_SECRETS",
+                f"No secrets found for key='{app_name}' in keyring.",
+            )
+            sys.exit(1)
         warn(f"No secrets found for key='{app_name}' in keyring.")
         sys.exit(1)
 
     if crypto.is_encrypted(payload):
-        password = resolve_decrypt_password(opts["password"])
+        if json_mode:
+            password = opts["password"] or os.environ.get("KLEYS_PASSWORD")
+        else:
+            password = resolve_decrypt_password(opts["password"])
         if password is None:
+            if json_mode:
+                _emit_lookup_json_error(
+                    "NO_PASSWORD",
+                    "Encrypted entry found but no password available."
+                    " Use --password PASSWORD or set KLEYS_PASSWORD.",
+                )
+                sys.exit(1)
             error(
                 "Error: Encrypted entry found but no password"
                 " available. Use --password PASSWORD or set"
@@ -304,11 +346,23 @@ def _handle_lookup(args: list[str]) -> None:
             sys.exit(1)
         secrets = crypto.decrypt(payload, password)
         if secrets is None:
+            if json_mode:
+                _emit_lookup_json_error(
+                    "DECRYPT_FAILED",
+                    "Decryption failed. Wrong password or corrupted data.",
+                )
+                sys.exit(1)
             error("Error: Decryption failed. Wrong password or corrupted data.")
             sys.exit(1)
-        info(secrets)
+        if json_mode:
+            _emit_lookup_json_secrets(secrets)
+        else:
+            info(secrets)
     else:
-        info(payload)
+        if json_mode:
+            _emit_lookup_json_secrets(payload)
+        else:
+            info(payload)
 
 
 def _handle_store(args: list[str]) -> None:
