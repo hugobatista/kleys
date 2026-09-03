@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -520,18 +519,23 @@ class TestParseStoreOptions:
 
 
 class TestHandleStore:
-    def test_stores_from_file_and_deletes(self, mocker: MockerFixture) -> None:
-        mocker.patch("builtins.open", mocker.mock_open(read_data="KEY=val\n"))
+    def test_stores_from_file_after_confirmation(
+        self, mocker: MockerFixture
+    ) -> None:
         mocker.patch("os.path.exists", return_value=True)
-        mocker.patch("os.remove")
-        mock_store = mocker.patch("kleys.modes.store_content")
+        mock_offer = mocker.patch(
+            "kleys.modes._offer_store_file", return_value=True
+        )
+        mock_remove = mocker.patch("os.remove")
 
         cli._handle_store(["--secrets-file", "custom.env"])
 
-        mock_store.assert_called_once_with("KEY=val\n", mocker.ANY, None, False)
-        os.remove.assert_called_once_with("custom.env")
+        mock_offer.assert_called_once_with(
+            "custom.env", mocker.ANY, None, False
+        )
+        mock_remove.assert_called_once_with("custom.env")
 
-    def test_stores_default_env(
+    def test_stores_default_env_after_confirmation(
         self,
         mocker: MockerFixture,
         tmp_path: Path,
@@ -539,14 +543,28 @@ class TestHandleStore:
     ) -> None:
         file = tmp_path / ".env"
         file.write_text("KEY=val\n")
-        mock_store = mocker.patch("kleys.modes.store_content")
+        mock_offer = mocker.patch(
+            "kleys.modes._offer_store_file", return_value=True
+        )
         mock_remove = mocker.patch("os.remove")
 
         monkeypatch.chdir(tmp_path)
         cli._handle_store([])
 
-        mock_store.assert_called_once_with("KEY=val\n", mocker.ANY, None, False)
+        mock_offer.assert_called_once_with(".env", mocker.ANY, None, False)
         mock_remove.assert_called_once_with(".env")
+
+    def test_declined_confirmation_pastes(self, mocker: MockerFixture) -> None:
+        mocker.patch("os.path.exists", return_value=True)
+        mocker.patch("kleys.modes._offer_store_file", return_value=False)
+        mocker.patch("kleys.modes.prompt_paste_content", return_value="PASTE=1")
+        mock_store = mocker.patch("kleys.modes.store_content")
+        mock_remove = mocker.patch("os.remove")
+
+        cli._handle_store(["--secrets-file", "custom.env"])
+
+        mock_store.assert_called_once_with("PASTE=1", mocker.ANY, None, False)
+        mock_remove.assert_not_called()
 
     def test_secrets_file_missing_exits(self, mocker: MockerFixture) -> None:
         mocker.patch("os.path.exists", return_value=False)

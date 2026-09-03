@@ -111,8 +111,9 @@ Usage: kleys store [OPTIONS]
   Store secrets for a key in the keyring without running a command.
 
   Reads secrets from --secrets-file, from the default .env file, or from
-  pasted input, stores them for the given key and exits. The source
-  file is removed after storing, matching the 'run' command.
+  pasted input, stores them for the given key and exits. When reading
+  from a file, kleys asks for confirmation first and removes the file
+  after storing.
 
 Aliases: add
 
@@ -328,12 +329,15 @@ def _handle_store(args: list[str]) -> None:
             )
             return
 
-    with open(source) as f:
-        content = f.read()
-    modes.store_content(
-        content, app_name, opts["password"], opts["plaintext_mode"]
-    )
-    os.remove(source)
+    if modes._offer_store_file(
+        source, app_name, opts["password"], opts["plaintext_mode"]
+    ):
+        os.remove(source)
+    else:
+        content = modes.prompt_paste_content()
+        modes.store_content(
+            content, app_name, opts["password"], opts["plaintext_mode"]
+        )
 
 
 def _handle_clear(args: list[str]) -> None:

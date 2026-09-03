@@ -124,7 +124,7 @@ Both forms are accepted: `kleys [OPTIONS] COMMAND [ARGS...]` and
 | Option | Description |
 |--------|-------------|
 | `--key KEY`, `-k KEY` | Keyring entry identifier (default: current folder name) |
-| `--secrets-file FILE`, `-f FILE` | Path to read secrets from (default: `.env`). The file is removed after storing, matching `run`. If no file is found, kleys prompts for pasted input. |
+| `--secrets-file FILE`, `-f FILE` | Path to read secrets from (default: `.env`). kleys asks for confirmation before importing a file, and removes it after storing. If no file is found, kleys prompts for pasted input. |
 | `--password PASSWORD` | Encrypt secrets with a password (Fernet/AES-128-CBC). If omitted, resolves from `KLEYS_PASSWORD` env var or prompts. |
 | `--unencrypted`, `-u` | Disable encryption, store secrets as plaintext (default: encryption enabled). |
 
@@ -281,12 +281,13 @@ Secrets are loaded from keyring and passed to Docker without ever touching the d
 ### Example 10: Store secrets without running a command
 
 ```bash
-kleys store                 # stores pasted input, or imports .env if present
+kleys store                 # stores pasted input, or offers to import .env if present
 kleys store --key myproject # same, for a specific key
 kleys store -f .secrets     # reads .secrets and stores it
 ```
 
-Stores secrets for the key and exits. The source file is removed after storing, matching `run`.
+Stores secrets for the key and exits. When reading from a file, kleys asks for
+confirmation and removes the source file after storing.
 
 ### Example 11: View stored secrets
 
