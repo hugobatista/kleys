@@ -1,3 +1,4 @@
+import os
 import sys
 
 import keyring as _keyring
@@ -5,6 +6,9 @@ import keyring.errors
 
 _SERVICE_PREFIX = "kleys:"
 _USERNAME = "secrets"
+_APPLICATION_ID = "kleys"
+
+os.environ["KEYRING_PROPERTY_APPID"] = _APPLICATION_ID
 
 
 class KeyringUnavailableError(RuntimeError):

@@ -171,7 +171,11 @@ def _warn_overwrite(file: str) -> None:
 
 
 def _env(**extra: str) -> dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if k != "KLEYS_PASSWORD"}
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("KLEYS_PASSWORD", "KEYRING_PROPERTY_APPID")
+    }
     env.update(extra)
     return env
 

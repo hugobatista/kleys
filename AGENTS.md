@@ -19,7 +19,8 @@ Four subcommands:
 - **clear** (aliases: delete, rm) — delete all stored secrets for an app
 
 Keyring entries use service `kleys:{app}`, username `secrets`. Encrypted payloads
-carry a `kleys-enc:v1:` marker; `crypto.is_encrypted()` detects it. When running a
+carry a `kleys-enc:v1:` marker; `crypto.is_encrypted()` detects it. On Linux, the
+`application` attribute is set to `kleys` via `KEYRING_PROPERTY_APPID`. When running a
 command, prefer the `kleys [OPTIONS] -- COMMAND` form (options before the command,
 `--` separates them).
 

@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import os
+
 import keyring
 import pytest
 from pytest_mock import MockerFixture
 
 from kleys import keyring_ as kr
+
+
+class TestApplicationId:
+    def test_sets_application_id_env(self) -> None:
+        assert os.environ.get("KEYRING_PROPERTY_APPID") == "kleys"
 
 
 class TestKeyringInstallHint:

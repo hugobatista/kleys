@@ -344,6 +344,17 @@ class TestExecFile:
         assert result == 127
 
 
+class TestEnv:
+    def test_strips_secret_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("KLEYS_PASSWORD", "pw")
+        monkeypatch.setenv("KEYRING_PROPERTY_APPID", "kleys")
+        monkeypatch.setenv("KEEP_ME", "value")
+        env = modes._env()
+        assert "KLEYS_PASSWORD" not in env
+        assert "KEYRING_PROPERTY_APPID" not in env
+        assert env["KEEP_ME"] == "value"
+
+
 class TestExecSource:
     def test_sets_env_and_runs(self) -> None:
         import subprocess
