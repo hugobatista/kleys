@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 
@@ -37,6 +38,14 @@ def _parse_env(content: str) -> dict[str, str]:
     return env
 
 
+def _abort_keyring_unavailable() -> NoReturn:
+    console.error(
+        "Error: No keyring backend is available. Kleys requires a"
+        f" system keyring to operate.\n{keyring_install_hint()}"
+    )
+    sys.exit(1)
+
+
 def store_content(
     content: str,
     app_name: str,
@@ -57,11 +66,7 @@ def store_content(
                 sys.exit(1)
             kr.store(app_name, crypto.encrypt(content, pw))
     except KeyringUnavailableError:
-        console.error(
-            "Error: No keyring backend is available. Kleys requires a"
-            f" system keyring to operate.\n{keyring_install_hint()}"
-        )
-        sys.exit(1)
+        _abort_keyring_unavailable()
     if plaintext_mode:
         console.success(
             f"\u2713 Stored in keyring as '{app_name}' (not encrypted)"
@@ -118,7 +123,10 @@ def _try_load_from_keyring(
     password: str | None,
     plaintext_mode: bool,
 ) -> str | None:
-    payload = kr.lookup(app_name)
+    try:
+        payload = kr.lookup(app_name)
+    except KeyringUnavailableError:
+        _abort_keyring_unavailable()
     if payload is None:
         return None
     if crypto.is_encrypted(payload):

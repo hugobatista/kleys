@@ -44,6 +44,13 @@ class TestStore:
         with pytest.raises(kr.KeyringUnavailableError):
             kr.store("myapp", "secret")
 
+    def test_raises_keyring_unavailable_on_backend_crash(
+        self, mocker: MockerFixture
+    ) -> None:
+        keyring.set_password.side_effect = OSError("dbus down")
+        with pytest.raises(kr.KeyringUnavailableError):
+            kr.store("myapp", "secret")
+
 
 class TestLookup:
     def test_returns_value_when_found(self, mocker: MockerFixture) -> None:
@@ -57,10 +64,17 @@ class TestLookup:
         result = kr.lookup("myapp")
         assert result is None
 
-    def test_returns_none_on_keyring_error(self, mocker: MockerFixture) -> None:
+    def test_raises_when_keyring_unavailable(
+        self, mocker: MockerFixture
+    ) -> None:
         keyring.get_password.side_effect = keyring.errors.KeyringError("fail")
-        result = kr.lookup("myapp")
-        assert result is None
+        with pytest.raises(kr.KeyringUnavailableError):
+            kr.lookup("myapp")
+
+    def test_raises_when_backend_crashes(self, mocker: MockerFixture) -> None:
+        keyring.get_password.side_effect = OSError("dbus down")
+        with pytest.raises(kr.KeyringUnavailableError):
+            kr.lookup("myapp")
 
 
 class TestDelete:

@@ -15,6 +15,13 @@ class KeyringUnavailableError(RuntimeError):
     pass
 
 
+def _unavailable_error() -> KeyringUnavailableError:
+    return KeyringUnavailableError(
+        "No keyring backend is available. Kleys requires a system"
+        f" keyring to operate.\n{keyring_install_hint()}"
+    )
+
+
 def keyring_install_hint() -> str:
     hint = "  Install a keyring backend (try: pip install keyrings.alt)"
     if sys.platform == "linux":
@@ -25,18 +32,15 @@ def keyring_install_hint() -> str:
 def store(app_name: str, secret: str) -> None:
     try:
         _keyring.set_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME, secret)
-    except keyring.errors.KeyringError as exc:
-        raise KeyringUnavailableError(
-            "No keyring backend is available. Kleys requires a system"
-            f" keyring to operate.\n{keyring_install_hint()}"
-        ) from exc
+    except Exception as exc:
+        raise _unavailable_error() from exc
 
 
 def lookup(app_name: str) -> str | None:
     try:
         return _keyring.get_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME)
-    except keyring.errors.KeyringError:
-        return None
+    except Exception as exc:
+        raise _unavailable_error() from exc
 
 
 def delete(app_name: str) -> bool:

@@ -501,6 +501,76 @@ class TestHandleLookup:
         out = capsys.readouterr().out
         assert json.loads(out)["error"]["kind"] == "DECRYPT_FAILED"
 
+    def test_json_backend_unavailable_exits(
+        self, mocker: MockerFixture, capsys
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            side_effect=cli.kr.KeyringUnavailableError("keyring down"),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            cli._handle_lookup(["--key", "myapp", "--json"])
+
+        assert exc.value.code == 1
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["error"]["kind"] == "BACKEND_UNAVAILABLE"
+        assert "keyring down" in payload["error"]["message"]
+
+    def test_text_backend_unavailable_exits(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            side_effect=cli.kr.KeyringUnavailableError("keyring down"),
+        )
+        mock_error = mocker.patch("kleys.cli.error")
+
+        with pytest.raises(SystemExit) as exc:
+            cli._handle_lookup(["--key", "myapp"])
+
+        assert exc.value.code == 1
+        assert "keyring down" in mock_error.call_args[0][0]
+
+    def test_json_unexpected_error_exits(
+        self, mocker: MockerFixture, capsys
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            side_effect=RuntimeError("boom"),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            cli._handle_lookup(["--key", "myapp", "--json"])
+
+        assert exc.value.code == 1
+        out = capsys.readouterr().out
+        assert json.loads(out)["error"]["kind"] == "INTERNAL_ERROR"
+
+    def test_text_unexpected_error_reraises(
+        self, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            side_effect=RuntimeError("boom"),
+        )
+
+        with pytest.raises(RuntimeError):
+            cli._handle_lookup(["--key", "myapp"])
+
+    def test_json_content_without_pairs(
+        self, mocker: MockerFixture, capsys
+    ) -> None:
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="not a pair\n# comment\n",
+        )
+
+        cli._handle_lookup(["--key", "myapp", "--json"])
+
+        out = capsys.readouterr().out
+        assert json.loads(out) == {"secrets": {}}
+
 
 class TestHandleClear:
     """Tests for _handle_clear."""

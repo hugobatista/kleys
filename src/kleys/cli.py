@@ -107,6 +107,9 @@ Options:
                           success, {"error": {"kind": ..., "message": ...}}
                           on failure. Never prompts — the password is read
                           from --password or KLEYS_PASSWORD only.
+                          Failure kinds: NO_SECRETS, NO_PASSWORD,
+                          DECRYPT_FAILED, BACKEND_UNAVAILABLE,
+                          INTERNAL_ERROR.
                           The stored content is parsed as KEY=VALUE lines;
                           blank lines, # comments and lines without '=' are
                           skipped. Content not in KEY=VALUE format yields
@@ -309,11 +312,9 @@ def _emit_lookup_json_error(kind: str, message: str) -> None:
     sys.stdout.write("\n")
 
 
-def _handle_lookup(args: list[str]) -> None:
-    opts = _parse_lookup_options(args)
-    app_name = resolve_app_name(opts["app_name"])
-    json_mode = opts["json"]
-
+def _lookup_and_emit(
+    app_name: str, password: str | None, json_mode: bool
+) -> None:
     payload = kr.lookup(app_name)
     if payload is None:
         if json_mode:
@@ -327,10 +328,10 @@ def _handle_lookup(args: list[str]) -> None:
 
     if crypto.is_encrypted(payload):
         if json_mode:
-            password = opts["password"] or os.environ.get("KLEYS_PASSWORD")
+            decrypt_password = password or os.environ.get("KLEYS_PASSWORD")
         else:
-            password = resolve_decrypt_password(opts["password"])
-        if password is None:
+            decrypt_password = resolve_decrypt_password(password)
+        if decrypt_password is None:
             if json_mode:
                 _emit_lookup_json_error(
                     "NO_PASSWORD",
@@ -344,7 +345,7 @@ def _handle_lookup(args: list[str]) -> None:
                 " KLEYS_PASSWORD."
             )
             sys.exit(1)
-        secrets = crypto.decrypt(payload, password)
+        secrets = crypto.decrypt(payload, decrypt_password)
         if secrets is None:
             if json_mode:
                 _emit_lookup_json_error(
@@ -363,6 +364,29 @@ def _handle_lookup(args: list[str]) -> None:
             _emit_lookup_json_secrets(payload)
         else:
             info(payload)
+
+
+def _handle_lookup(args: list[str]) -> None:
+    opts = _parse_lookup_options(args)
+    app_name = resolve_app_name(opts["app_name"])
+    json_mode = opts["json"]
+
+    try:
+        _lookup_and_emit(app_name, opts["password"], json_mode)
+    except kr.KeyringUnavailableError as exc:
+        if json_mode:
+            _emit_lookup_json_error("BACKEND_UNAVAILABLE", str(exc))
+        else:
+            error(f"Error: {exc}")
+        sys.exit(1)
+    except Exception:
+        if not json_mode:
+            raise
+        _emit_lookup_json_error(
+            "INTERNAL_ERROR",
+            "Unexpected error while looking up secrets.",
+        )
+        sys.exit(1)
 
 
 def _handle_store(args: list[str]) -> None:

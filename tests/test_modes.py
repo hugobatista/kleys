@@ -200,6 +200,14 @@ class TestTryLoadFromKeyring:
         result = modes._try_load_from_keyring("myapp", None, True)
         assert result is None
 
+    def test_keyring_unavailable_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch(
+            "kleys.modes.kr.lookup",
+            side_effect=KeyringUnavailableError("down"),
+        )
+        with pytest.raises(SystemExit):
+            modes._try_load_from_keyring("myapp", None, False)
+
 
 class TestInteractivePromptAndStore:
     def test_user_input_encrypted(self, mocker: MockerFixture) -> None:

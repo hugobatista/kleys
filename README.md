@@ -137,7 +137,9 @@ Both forms are accepted: `kleys [OPTIONS] COMMAND [ARGS...]` and
 
 For machine-readable output, `lookup` accepts `--json`: on success it prints
 `{"secrets": {"KEY": "value", ...}}`; on failure `{"error": {"kind": ...,
-"message": ...}}` with kinds `NO_SECRETS`, `NO_PASSWORD`, `DECRYPT_FAILED`.
+"message": ...}}` with kinds `NO_SECRETS`, `NO_PASSWORD`,
+`DECRYPT_FAILED`, `BACKEND_UNAVAILABLE` (keyring backend error) and
+`INTERNAL_ERROR` (unexpected failure).
 In `--json` mode kleys never prompts — the password is read from
 `--password` or `KLEYS_PASSWORD` only. This is the contract used by the
 [Hermes Agent](https://github.com/hugobatista/hermes-kleys) secret-source
