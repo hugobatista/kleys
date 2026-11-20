@@ -531,12 +531,13 @@ The Linux Secret Service API (D-Bus) that powers GNOME Keyring, KWallet, and sim
 
 ```python
 import secretstorage
+
 bus = secretstorage.dbus_init()
 col = secretstorage.get_default_collection(bus)
 for item in col.get_all_items():
-    print(f'  Label: {item.get_label()}')
-    print(f'  Attributes: {item.get_attributes()}')
-    print(f'  Secret: {item.get_secret().decode(errors="replace")}')
+    print(f"  Label: {item.get_label()}")
+    print(f"  Attributes: {item.get_attributes()}")
+    print(f"  Secret: {item.get_secret().decode(errors='replace')}")
     print()
 ```
 

@@ -177,9 +177,9 @@ flowchart TD
 The `setup_cleanup()` function ensures temp files are deleted even if the subprocess crashes:
 
 ```python
-atexit.register(cleanup)           # Normal exit
-signal.signal(SIGINT, cleanup)     # Ctrl-C
-signal.signal(SIGTERM, cleanup)    # Kill signal
+atexit.register(cleanup)  # Normal exit
+signal.signal(SIGINT, cleanup)  # Ctrl-C
+signal.signal(SIGTERM, cleanup)  # Kill signal
 ```
 
 ---

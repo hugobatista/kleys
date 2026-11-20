@@ -10,23 +10,23 @@ requires-python = ">=3.11"
 license = { text = "GPL-3.0-only" }
 
 dependencies = [
-    "typer>=0.12",
-    "keyring>=25.0",
-    "cryptography>=44.0",
+    "typer>=0.27",
+    "keyring>=25.7",
+    "cryptography>=50.0",
 ]
 
 [dependency-groups]
 lint = [
-    "mypy>=1",
-    "ruff>=0.11",
+    "mypy>=2.4",
+    "ruff>=0.17",
 ]
 test = [
-    "pytest>=8",
-    "pytest-mock>=3",
-    "pytest-cov>=6",
+    "pytest>=9.1",
+    "pytest-mock>=3.17",
+    "pytest-cov>=7.1",
 ]
 dev = [
-    "hatch>=1.16.5",
+    "hatch>=1.18",
     {include-group = "lint"},
     {include-group = "test"},
 ]
@@ -35,7 +35,7 @@ dev = [
 kleys = "kleys.cli:main"
 
 [tool.uv]
-required-version = "0.11.18"
+required-version = ">=0.11.18"
 exclude-newer = "30 days"
 
 [[tool.uv.index]]
@@ -44,7 +44,7 @@ url = "https://pypi.org/simple"
 explicit = true
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.32"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

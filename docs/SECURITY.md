@@ -81,6 +81,7 @@ An attacker's process can enumerate the keyring:
 
 ```python
 import secretstorage
+
 bus = secretstorage.dbus_init()
 col = secretstorage.get_default_collection(bus)
 for item in col.get_all_items():
@@ -94,6 +95,7 @@ for item in col.get_all_items():
 
 ```python
 import secretstorage
+
 bus = secretstorage.dbus_init()
 col = secretstorage.get_default_collection(bus)
 for item in col.get_all_items():
