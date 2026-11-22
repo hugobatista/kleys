@@ -11,44 +11,6 @@ from kleys import modes
 from kleys.keyring_ import KeyringUnavailableError
 
 
-class TestParseEnv:
-    def test_simple_key_value(self) -> None:
-        assert modes._parse_env("KEY=value") == {"KEY": "value"}
-
-    def test_multi_line(self) -> None:
-        content = "A=1\nB=2\nC=3"
-        assert modes._parse_env(content) == {"A": "1", "B": "2", "C": "3"}
-
-    def test_skips_comments(self) -> None:
-        content = "# comment\nKEY=val\n# another"
-        assert modes._parse_env(content) == {"KEY": "val"}
-
-    def test_skips_empty_lines(self) -> None:
-        content = "\n\nKEY=val\n\n"
-        assert modes._parse_env(content) == {"KEY": "val"}
-
-    def test_skips_lines_without_equals(self) -> None:
-        content = "KEY=val\nINVALID\nOTHER=thing"
-        assert modes._parse_env(content) == {"KEY": "val", "OTHER": "thing"}
-
-    def test_value_contains_equals(self) -> None:
-        content = "URL=postgres://user:pass@host/db?ssl=true"
-        assert modes._parse_env(content) == {
-            "URL": "postgres://user:pass@host/db?ssl=true"
-        }
-
-    def test_strips_whitespace(self) -> None:
-        content = "  KEY  =  value  "
-        assert modes._parse_env(content) == {"KEY": "value"}
-
-    def test_empty_content(self) -> None:
-        assert modes._parse_env("") == {}
-
-    def test_only_comments_and_blank(self) -> None:
-        content = "# comment\n\n# another\n"
-        assert modes._parse_env(content) == {}
-
-
 class TestOfferStoreFile:
     def test_user_accepts_plaintext(
         self, mocker: MockerFixture, tmp_path: Path

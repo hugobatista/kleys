@@ -47,5 +47,7 @@ def delete(app_name: str) -> bool:
     try:
         _keyring.delete_password(f"{_SERVICE_PREFIX}{app_name}", _USERNAME)
         return True
-    except keyring.errors.KeyringError:
+    except keyring.errors.PasswordDeleteError:
         return False
+    except Exception as exc:
+        raise _unavailable_error() from exc

@@ -10,7 +10,7 @@ def success(msg: str) -> None:
 
 
 def warn(msg: str) -> None:
-    typer.secho(msg, fg=typer.colors.YELLOW)
+    typer.secho(msg, fg=typer.colors.YELLOW, err=True)
 
 
 def error(msg: str) -> None:

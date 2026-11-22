@@ -92,3 +92,8 @@ class TestDelete:
         )
         result = kr.delete("myapp")
         assert result is False
+
+    def test_raises_when_backend_crashes(self, mocker: MockerFixture) -> None:
+        keyring.delete_password.side_effect = OSError("dbus down")
+        with pytest.raises(kr.KeyringUnavailableError):
+            kr.delete("myapp")

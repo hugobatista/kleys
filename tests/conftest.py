@@ -16,13 +16,17 @@ def reset_utils_state() -> Generator[None, None, None]:
     yield
 
 
+class _FakePasswordDeleteError(Exception):
+    pass
+
+
 @pytest.fixture(autouse=True)
 def mock_keyring(mocker: MockerFixture) -> None:
     mocker.patch("keyring.set_password")
     mocker.patch("keyring.get_password", return_value=None)
     mocker.patch("keyring.delete_password", return_value=None)
     mocker.patch("keyring.errors.KeyringError", Exception)
-    mocker.patch("keyring.errors.PasswordDeleteError", Exception)
+    mocker.patch("keyring.errors.PasswordDeleteError", _FakePasswordDeleteError)
 
 
 @pytest.fixture(autouse=True)

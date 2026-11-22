@@ -286,6 +286,23 @@ class TestParseLookupOptions:
         with pytest.raises(SystemExit):
             cli._parse_lookup_options(["--password"])
 
+    def test_password_flag_not_consumed_as_value(self) -> None:
+        with pytest.raises(SystemExit):
+            cli._parse_lookup_options(["--password", "--json"])
+
+    def test_key_flag_not_consumed_as_value(self) -> None:
+        with pytest.raises(SystemExit):
+            cli._parse_lookup_options(["--key", "--json"])
+
+    def test_password_equals_json_literal(self) -> None:
+        opts = cli._parse_lookup_options(["--password=--json"])
+        assert opts["password"] == "--json"
+
+    def test_password_warns_in_json_mode(self, mocker: MockerFixture) -> None:
+        mock_warn = mocker.patch("kleys.cli.warn")
+        cli._parse_lookup_options(["--json", "--password", "hunter2"])
+        mock_warn.assert_called_once_with(cli._PASSWORD_WARNING)
+
     def test_json_flag(self) -> None:
         opts = cli._parse_lookup_options(["--json"])
         assert opts["json"] is True
@@ -457,13 +474,33 @@ class TestHandleLookup:
         out = capsys.readouterr().out
         assert json.loads(out) == {"secrets": {"KEY": "value"}}
 
+    def test_json_password_warns_on_stderr_without_prompt(
+        self, mocker: MockerFixture, capsys, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("KLEYS_PASSWORD", raising=False)
+        mocker.patch(
+            "kleys.keyring_.lookup",
+            return_value="kleys-enc:v1:encrypted:b64==",
+        )
+        mocker.patch("kleys.crypto.decrypt", return_value="KEY=value")
+        resolve = mocker.patch("kleys.cli.resolve_decrypt_password")
+
+        cli._handle_lookup(["--key", "myapp", "--json", "--password", "pw"])
+
+        resolve.assert_not_called()
+        captured = capsys.readouterr()
+        assert captured.out == '{"secrets": {"KEY": "value"}}\n'
+        assert "\x1b" not in captured.out
+        assert "visible in process listings" in captured.err
+
     def test_json_no_secrets_exits(self, mocker: MockerFixture, capsys) -> None:
         mocker.patch("kleys.keyring_.lookup", return_value=None)
         mock_warn = mocker.patch("kleys.cli.warn")
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc:
             cli._handle_lookup(["--key", "myapp", "--json"])
 
+        assert exc.value.code == 1
         mock_warn.assert_not_called()
         out = capsys.readouterr().out
         assert json.loads(out)["error"]["kind"] == "NO_SECRETS"
@@ -477,9 +514,10 @@ class TestHandleLookup:
             return_value="kleys-enc:v1:encrypted:b64==",
         )
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc:
             cli._handle_lookup(["--key", "myapp", "--json"])
 
+        assert exc.value.code == 1
         out = capsys.readouterr().out
         assert json.loads(out)["error"]["kind"] == "NO_PASSWORD"
 
@@ -493,11 +531,12 @@ class TestHandleLookup:
         )
         mocker.patch("kleys.crypto.decrypt", return_value=None)
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc:
             cli._handle_lookup(
                 ["--key", "myapp", "--json", "--password", "wrong"]
             )
 
+        assert exc.value.code == 1
         out = capsys.readouterr().out
         assert json.loads(out)["error"]["kind"] == "DECRYPT_FAILED"
 
@@ -593,6 +632,19 @@ class TestHandleClear:
 
         mock_warn.assert_called_once()
         assert "No secrets found" in mock_warn.call_args[0][0]
+
+    def test_backend_unavailable_exits(self, mocker: MockerFixture) -> None:
+        mocker.patch(
+            "kleys.keyring_.delete",
+            side_effect=cli.kr.KeyringUnavailableError("keyring down"),
+        )
+        mock_error = mocker.patch("kleys.cli.error")
+
+        with pytest.raises(SystemExit) as exc:
+            cli._handle_clear(["--key", "myapp", "--force"])
+
+        assert exc.value.code == 1
+        assert "keyring down" in mock_error.call_args[0][0]
 
     def test_confirms_before_delete(self, mocker: MockerFixture) -> None:
         mocker.patch("sys.stdin.isatty", return_value=True)

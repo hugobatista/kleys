@@ -14,28 +14,12 @@ from kleys.password import (
     resolve_decrypt_password,
     resolve_encrypt_password,
 )
-from kleys.utils import create_temp_env, setup_cleanup
+from kleys.utils import create_temp_env, parse_env, setup_cleanup
 
 
 def resolve_app_name(name: str | None) -> str:
     resolved = name or Path.cwd().name
     return resolved if resolved else "root"
-
-
-def _parse_env(content: str) -> dict[str, str]:
-    env: dict[str, str] = {}
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if key:
-            env[key] = value
-    return env
 
 
 def _abort_keyring_unavailable() -> NoReturn:
@@ -211,7 +195,7 @@ def _exec_file(command: list[str], secrets_content: str, file: str) -> int:
 
 
 def _exec_source(command: list[str], secrets_content: str) -> int:
-    parsed = _parse_env(secrets_content)
+    parsed = parse_env(secrets_content)
     env = _env(**parsed)
     console.cmd(f"\u2192 Running: {' '.join(command)}")
     try:

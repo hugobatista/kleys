@@ -7,6 +7,28 @@ import tempfile
 _FILE_PATH: str | None = None
 
 
+def parse_env(content: str) -> dict[str, str]:
+    """Parse ``KEY=VALUE`` lines into a mapping.
+
+    Surrounding whitespace is stripped from keys and values. Blank lines,
+    ``#`` comments and lines without ``=`` are skipped. Duplicate keys
+    keep the last value.
+    """
+    env: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key:
+            env[key] = value
+    return env
+
+
 def _cleanup() -> None:
     global _FILE_PATH
     if _FILE_PATH is not None:

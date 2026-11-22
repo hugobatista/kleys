@@ -8,6 +8,48 @@ import pytest
 from kleys import utils
 
 
+class TestParseEnv:
+    def test_simple_key_value(self) -> None:
+        assert utils.parse_env("KEY=value") == {"KEY": "value"}
+
+    def test_multi_line(self) -> None:
+        content = "A=1\nB=2\nC=3"
+        assert utils.parse_env(content) == {"A": "1", "B": "2", "C": "3"}
+
+    def test_skips_comments(self) -> None:
+        content = "# comment\nKEY=val\n# another"
+        assert utils.parse_env(content) == {"KEY": "val"}
+
+    def test_skips_empty_lines(self) -> None:
+        content = "\n\nKEY=val\n\n"
+        assert utils.parse_env(content) == {"KEY": "val"}
+
+    def test_skips_lines_without_equals(self) -> None:
+        content = "KEY=val\nINVALID\nOTHER=thing"
+        assert utils.parse_env(content) == {"KEY": "val", "OTHER": "thing"}
+
+    def test_value_contains_equals(self) -> None:
+        content = "URL=postgres://user:pass@host/db?ssl=true"
+        assert utils.parse_env(content) == {
+            "URL": "postgres://user:pass@host/db?ssl=true"
+        }
+
+    def test_strips_whitespace(self) -> None:
+        content = "  KEY  =  value  "
+        assert utils.parse_env(content) == {"KEY": "value"}
+
+    def test_duplicate_keys_last_wins(self) -> None:
+        content = "KEY=first\nKEY=second"
+        assert utils.parse_env(content) == {"KEY": "second"}
+
+    def test_empty_content(self) -> None:
+        assert utils.parse_env("") == {}
+
+    def test_only_comments_and_blank(self) -> None:
+        content = "# comment\n\n# another\n"
+        assert utils.parse_env(content) == {}
+
+
 class TestCreateTempEnv:
     def test_creates_file_with_content(self) -> None:
         path = utils.create_temp_env("KEY=value\n")

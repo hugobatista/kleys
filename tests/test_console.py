@@ -24,7 +24,9 @@ class TestWarn:
     def test_calls_secho_with_yellow(self, mocker: MockerFixture) -> None:
         secho = mocker.patch("typer.secho")
         console.warn("careful")
-        secho.assert_called_once_with("careful", fg=typer.colors.YELLOW)
+        secho.assert_called_once_with(
+            "careful", fg=typer.colors.YELLOW, err=True
+        )
 
 
 class TestError:

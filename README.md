@@ -140,15 +140,17 @@ For machine-readable output, `lookup` accepts `--json`: on success it prints
 "message": ...}}` with kinds `NO_SECRETS`, `NO_PASSWORD`,
 `DECRYPT_FAILED`, `BACKEND_UNAVAILABLE` (keyring backend error) and
 `INTERNAL_ERROR` (unexpected failure).
-In `--json` mode kleys never prompts — the password is read from
-`--password` or `KLEYS_PASSWORD` only. This is the contract used by the
+In `--json` mode kleys never prompts for a password — it is read from
+`--password` or `KLEYS_PASSWORD` only. The OS keyring may still show an
+unlock prompt. This is the contract used by the
 [Hermes Agent](https://github.com/hugobatista/hermes-kleys) secret-source
 plugin.
 
 > **Expected format:** the stored content must be in `KEY=VALUE` format
 > per line. In `--json` mode kleys parses those pairs — blank lines, `#`
-> comments and lines without `=` are skipped. Content with no such pairs
-> yields `{"secrets": {}}`.
+> comments and lines without `=` are skipped. Keys and values are trimmed
+> of surrounding whitespace; duplicate keys keep the last value. Content
+> with no such pairs yields `{"secrets": {}}`.
 
 ```bash
 kleys lookup --key myproject --json
@@ -317,6 +319,7 @@ kleys lookup --key myproject
 ```
 
 Prints the secrets content to stdout (no header). Decrypts automatically when needed.
+Warnings go to stderr, so stdout can be piped safely.
 
 ### Example 12: Delete stored secrets
 

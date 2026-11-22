@@ -8,6 +8,7 @@ from kleys import keyring_ as kr
 from kleys.console import error, info, success, warn
 from kleys.modes import resolve_app_name
 from kleys.password import resolve_decrypt_password
+from kleys.utils import parse_env
 
 _TOP_HELP = """\
 Usage: kleys [OPTIONS] -- COMMAND [ARGS...]
@@ -105,8 +106,9 @@ Options:
   --password PASSWORD     Decryption password (required if encrypted)
   --json                  Machine-readable output: {"secrets": {...}} on
                           success, {"error": {"kind": ..., "message": ...}}
-                          on failure. Never prompts — the password is read
-                          from --password or KLEYS_PASSWORD only.
+                          on failure. Never prompts for a password — it is
+                          read from --password or KLEYS_PASSWORD only.
+                          The OS keyring may still prompt to unlock.
                           Failure kinds: NO_SECRETS, NO_PASSWORD,
                           DECRYPT_FAILED, BACKEND_UNAVAILABLE,
                           INTERNAL_ERROR.
@@ -167,14 +169,17 @@ _PASSWORD_WARNING = (
 
 
 def _consume_opt_val(
-    args: list[str], i: int, *names: str
+    args: list[str],
+    i: int,
+    *names: str,
+    flags: tuple[str, ...] = (),
 ) -> tuple[str, int] | None:
     a = args[i]
     for name in names:
         if a.startswith(f"{name}="):
             return a.split("=", 1)[1], i + 1
         if a == name:
-            if i + 1 >= len(args):
+            if i + 1 >= len(args) or args[i + 1] in flags:
                 error(f"error: {name} requires a value")
                 sys.exit(1)
             return args[i + 1], i + 2
@@ -222,18 +227,17 @@ def _parse_lookup_options(args: list[str]) -> dict[str, Any]:
         "password": None,
         "json": False,
     }
-    json_requested = "--json" in args
+    lookup_flags = ("--json", "--help", "-h")
     i = 0
     while i < len(args):
         a = args[i]
         if a in ("--help", "-h"):
             sys.stdout.write(_LOOKUP_HELP)
             sys.exit(0)
-        elif r := _consume_opt_val(args, i, "--key", "-k"):
+        elif r := _consume_opt_val(args, i, "--key", "-k", flags=lookup_flags):
             opts["app_name"], i = r
-        elif r := _consume_opt_val(args, i, "--password"):
-            if not json_requested:
-                warn(_PASSWORD_WARNING)
+        elif r := _consume_opt_val(args, i, "--password", flags=lookup_flags):
+            warn(_PASSWORD_WARNING)
             opts["password"], i = r
         elif a == "--json":
             opts["json"] = True
@@ -303,7 +307,7 @@ def _handle_run(args: list[str]) -> None:
 
 
 def _emit_lookup_json_secrets(content: str) -> None:
-    sys.stdout.write(json.dumps({"secrets": modes._parse_env(content)}))
+    sys.stdout.write(json.dumps({"secrets": parse_env(content)}))
     sys.stdout.write("\n")
 
 
@@ -444,7 +448,12 @@ def _handle_clear(args: list[str]) -> None:
             warn("Clear cancelled.")
             sys.exit(1)
 
-    if kr.delete(app_name):
+    try:
+        deleted = kr.delete(app_name)
+    except kr.KeyringUnavailableError as exc:
+        error(f"Error: {exc}")
+        sys.exit(1)
+    if deleted:
         success(f"Deleted secrets for '{app_name}'")
     else:
         warn(f"No secrets found for key='{app_name}' in keyring.")
