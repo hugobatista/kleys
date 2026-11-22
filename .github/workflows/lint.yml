@@ -5,6 +5,9 @@ on:
     branches: [master, main]
     paths:
       - '**.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/lint.yml'
   pull_request:
     branches: [master, main]
   workflow_dispatch:
@@ -34,6 +37,7 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           version: "0.13.9"
+          python-version: "3.11"
 
       - name: Sync dependencies
         run: uv sync --frozen --no-dev --group lint --no-install-project
